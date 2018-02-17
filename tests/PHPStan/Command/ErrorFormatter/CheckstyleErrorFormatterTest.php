@@ -21,7 +21,7 @@ class CheckstyleErrorFormatterTest extends \PHPStan\Testing\TestCase
 	 *
 	 * @return void
 	 */
-	protected function setUp()
+	protected function setUp(): void
 	{
 		$this->formatter = new CheckstyleErrorFormatter();
 	}
@@ -31,7 +31,7 @@ class CheckstyleErrorFormatterTest extends \PHPStan\Testing\TestCase
 	 *
 	 * @return void
 	 */
-	public function testFormatErrors()
+	public function testFormatErrors(): void
 	{
 		$analysisResultMock = $this->createMock(AnalysisResult::class);
 		$analysisResultMock
@@ -47,10 +47,15 @@ class CheckstyleErrorFormatterTest extends \PHPStan\Testing\TestCase
 				new Error('Bar', 'file name with "spaces" and unicode 😃.php', 2),
 			]);
 
-		$outputStream = new StreamOutput(fopen('php://memory', 'w', false));
+		$resource = fopen('php://memory', 'w', false);
+		if ($resource === false) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
+		$outputStream = new StreamOutput($resource);
 		$style = new ErrorsConsoleStyle(new StringInput(''), $outputStream);
 
-		$this->assertEquals(1, $this->formatter->formatErrors($analysisResultMock, $style));
+		$this->assertSame(1, $this->formatter->formatErrors($analysisResultMock, $style));
 
 		rewind($outputStream->getStream());
 		$output = stream_get_contents($outputStream->getStream());
@@ -65,7 +70,7 @@ class CheckstyleErrorFormatterTest extends \PHPStan\Testing\TestCase
 </file>
 </checkstyle>
 ';
-		$this->assertEquals($expected, $output);
+		$this->assertSame($expected, $output);
 	}
 
 	/**
@@ -73,7 +78,7 @@ class CheckstyleErrorFormatterTest extends \PHPStan\Testing\TestCase
 	 *
 	 * @return void
 	 */
-	public function testFormatErrorsEmpty()
+	public function testFormatErrorsEmpty(): void
 	{
 		$analysisResultMock = $this->createMock(AnalysisResult::class);
 		$analysisResultMock
@@ -81,10 +86,15 @@ class CheckstyleErrorFormatterTest extends \PHPStan\Testing\TestCase
 			->method('hasErrors')
 			->willReturn(false);
 
-		$outputStream = new StreamOutput(fopen('php://memory', 'w', false));
+		$resource = fopen('php://memory', 'w', false);
+		if ($resource === false) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
+		$outputStream = new StreamOutput($resource);
 		$style = new ErrorsConsoleStyle(new StringInput(''), $outputStream);
 
-		$this->assertEquals(0, $this->formatter->formatErrors($analysisResultMock, $style));
+		$this->assertSame(0, $this->formatter->formatErrors($analysisResultMock, $style));
 
 		rewind($outputStream->getStream());
 		$output = stream_get_contents($outputStream->getStream());
@@ -93,7 +103,7 @@ class CheckstyleErrorFormatterTest extends \PHPStan\Testing\TestCase
 <checkstyle>
 </checkstyle>
 ';
-		$this->assertEquals($expected, $output);
+		$this->assertSame($expected, $output);
 	}
 
 }

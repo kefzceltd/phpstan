@@ -1,26 +1,19 @@
 <?php declare(strict_types = 1);
 
-namespace PHPStan\Type;
+namespace PHPStan\Type\Traits;
 
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
 use PHPStan\Reflection\PropertyReflection;
+use PHPStan\TrinaryLogic;
 
-trait IterableTypeTrait
+trait NonObjectTypeTrait
 {
 
-	/** @var \PHPStan\Type\Type */
-	private $itemType;
-
-	public function getItemType(): Type
+	public function canAccessProperties(): TrinaryLogic
 	{
-		return $this->itemType;
-	}
-
-	public function canAccessProperties(): bool
-	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 	public function hasProperty(string $propertyName): bool
@@ -33,9 +26,9 @@ trait IterableTypeTrait
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 	public function hasMethod(string $methodName): bool
@@ -48,9 +41,9 @@ trait IterableTypeTrait
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 	public function hasConstant(string $constantName): bool
@@ -63,9 +56,9 @@ trait IterableTypeTrait
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function isClonable(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 }

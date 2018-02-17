@@ -210,8 +210,8 @@ class Broker
 			return $this->hasClassCache[$className];
 		}
 
-		spl_autoload_register($autoloader = function (string $autoloadedClassName) use ($className) {
-			if ($autoloadedClassName !== $className) {
+		spl_autoload_register($autoloader = function (string $autoloadedClassName) use ($className): void {
+			if ($autoloadedClassName !== $className && !$this->isExistsCheckCall()) {
 				throw new \PHPStan\Broker\ClassAutoloadingException($autoloadedClassName);
 			}
 		});
@@ -230,7 +230,7 @@ class Broker
 		}
 	}
 
-	public function getFunction(\PhpParser\Node\Name $nameNode, Scope $scope = null): \PHPStan\Reflection\FunctionReflection
+	public function getFunction(\PhpParser\Node\Name $nameNode, ?Scope $scope): \PHPStan\Reflection\FunctionReflection
 	{
 		$functionName = $this->resolveFunctionName($nameNode, $scope);
 		if ($functionName === null) {
@@ -261,51 +261,35 @@ class Broker
 		return $this->functionReflections[$lowerCasedFunctionName];
 	}
 
-	public function hasFunction(\PhpParser\Node\Name $nameNode, Scope $scope = null): bool
+	public function hasFunction(\PhpParser\Node\Name $nameNode, ?Scope $scope): bool
 	{
 		return $this->resolveFunctionName($nameNode, $scope) !== null;
 	}
 
-	/**
-	 * @param \PhpParser\Node\Name $nameNode
-	 * @param \PHPStan\Analyser\Scope|null $scope
-	 * @return string|null
-	 */
-	public function resolveFunctionName(\PhpParser\Node\Name $nameNode, Scope $scope = null)
+	public function resolveFunctionName(\PhpParser\Node\Name $nameNode, ?Scope $scope): ?string
 	{
 		return $this->resolveName($nameNode, function (string $name): bool {
 			return function_exists($name);
 		}, $scope);
 	}
 
-	public function hasConstant(\PhpParser\Node\Name $nameNode, Scope $scope = null): bool
+	public function hasConstant(\PhpParser\Node\Name $nameNode, ?Scope $scope): bool
 	{
 		return $this->resolveConstantName($nameNode, $scope) !== null;
 	}
 
-	/**
-	 * @param \PhpParser\Node\Name $nameNode
-	 * @param \PHPStan\Analyser\Scope|null $scope
-	 * @return string|null
-	 */
-	public function resolveConstantName(\PhpParser\Node\Name $nameNode, Scope $scope = null)
+	public function resolveConstantName(\PhpParser\Node\Name $nameNode, ?Scope $scope): ?string
 	{
 		return $this->resolveName($nameNode, function (string $name): bool {
 			return defined($name);
 		}, $scope);
 	}
 
-	/**
-	 * @param \PhpParser\Node\Name $nameNode
-	 * @param \Closure $existsCallback
-	 * @param \PHPStan\Analyser\Scope|null $scope
-	 * @return string|null
-	 */
 	private function resolveName(
 		\PhpParser\Node\Name $nameNode,
 		\Closure $existsCallback,
-		Scope $scope = null
-	)
+		?Scope $scope
+	): ?string
 	{
 		$name = (string) $nameNode;
 		if ($scope !== null && $scope->getNamespace() !== null && !$nameNode->isFullyQualified()) {
@@ -320,6 +304,29 @@ class Broker
 		}
 
 		return null;
+	}
+
+	private function isExistsCheckCall(): bool
+	{
+		$debugBacktrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+		$existsCallTypes = [
+			'class_exists' => true,
+			'interface_exists' => true,
+			'trait_exists' => true,
+		];
+
+		foreach ($debugBacktrace as $traceStep) {
+			if (
+				isset($traceStep['function'])
+				&& isset($existsCallTypes[$traceStep['function']])
+				// We must ignore the self::hasClass calls
+				&& (!isset($traceStep['file']) || $traceStep['file'] !== __FILE__)
+			) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 }

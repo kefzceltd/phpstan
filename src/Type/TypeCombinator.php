@@ -8,7 +8,7 @@ class TypeCombinator
 	/** @var bool|null */
 	private static $unionTypesEnabled;
 
-	public static function setUnionTypesEnabled(bool $enabled)
+	public static function setUnionTypesEnabled(bool $enabled): void
 	{
 		if (self::$unionTypesEnabled !== null) {
 			throw new \PHPStan\ShouldNotHappenException();
@@ -112,8 +112,8 @@ class TypeCombinator
 					);
 					array_splice($types, $j, 1);
 					continue 2;
-				} elseif ($types[$i] instanceof IterableIterableType && $types[$j] instanceof IterableIterableType) {
-					$types[$i] = new IterableIterableType(
+				} elseif ($types[$i] instanceof IterableType && $types[$j] instanceof IterableType) {
+					$types[$i] = new IterableType(
 						self::union($types[$i]->getIterableKeyType(), $types[$j]->getIterableKeyType()),
 						self::union($types[$i]->getIterableValueType(), $types[$j]->getIterableValueType())
 					);

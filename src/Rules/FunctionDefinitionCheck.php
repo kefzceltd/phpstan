@@ -15,9 +15,8 @@ use PHPStan\Type\NonexistentParentClassType;
 class FunctionDefinitionCheck
 {
 
-	const VALID_TYPEHINTS = [
+	private const VALID_TYPEHINTS = [
 		'self',
-		'static',
 		'array',
 		'callable',
 		'string',
@@ -26,6 +25,8 @@ class FunctionDefinitionCheck
 		'float',
 		'void',
 		'iterable',
+		'object',
+		'parent',
 	];
 
 	/**
@@ -88,11 +89,18 @@ class FunctionDefinitionCheck
 				$functionName = (string) $function->namespacedName;
 			}
 			$functionNameName = new Name($functionName);
-			if (!$this->broker->hasFunction($functionNameName)) {
+			if (!$this->broker->hasFunction($functionNameName, null)) {
 				return [];
 			}
+
+			$functionReflection = $this->broker->getFunction($functionNameName, null);
+
+			if (!$functionReflection instanceof ParametersAcceptorWithPhpDocs) {
+				throw new \PHPStan\ShouldNotHappenException();
+			}
+
 			return $this->checkParametersAcceptor(
-				$this->broker->getFunction($functionNameName),
+				$functionReflection,
 				$parameterMessage,
 				$returnMessage
 			);
@@ -155,7 +163,7 @@ class FunctionDefinitionCheck
 				);
 			}
 			foreach ($referencedClasses as $class) {
-				if (!$this->broker->hasClass($class)) {
+				if (!$this->broker->hasClass($class) || $this->broker->getClass($class)->isTrait()) {
 					$errors[] = sprintf($parameterMessage, $parameter->getName(), $class);
 				}
 			}
@@ -181,7 +189,7 @@ class FunctionDefinitionCheck
 		}
 
 		foreach ($returnTypeReferencedClasses as $class) {
-			if (!$this->broker->hasClass($class)) {
+			if (!$this->broker->hasClass($class) || $this->broker->getClass($class)->isTrait()) {
 				$errors[] = sprintf($returnMessage, $class);
 			}
 		}

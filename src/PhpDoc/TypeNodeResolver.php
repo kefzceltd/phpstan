@@ -19,7 +19,7 @@ use PHPStan\Type\FalseBooleanType;
 use PHPStan\Type\FloatType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\IntersectionType;
-use PHPStan\Type\IterableIterableType;
+use PHPStan\Type\IterableType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\NonexistentParentClassType;
 use PHPStan\Type\NullType;
@@ -112,7 +112,7 @@ class TypeNodeResolver
 				]);
 
 			case 'iterable':
-				return new IterableIterableType(new MixedType(), new MixedType());
+				return new IterableType(new MixedType(), new MixedType());
 
 			case 'callable':
 				return new CallableType();
@@ -181,23 +181,19 @@ class TypeNodeResolver
 			}
 		}
 
-		$hasPhpunitMock = false;
 		$otherTypeTypes = $this->resolveMultiple($otherTypeNodes, $nameScope);
-		foreach ($otherTypeTypes as $otherType) {
-			if (
-				$otherType instanceof TypeWithClassName
-				&& in_array($otherType->getClassName(), [
-					'PHPUnit_Framework_MockObject_MockObject',
-					\PHPUnit\Framework\MockObject\MockObject::class,
-				], true)
-			) {
-				$hasPhpunitMock = true;
-				break;
-			}
-		}
 
-		if (count($otherTypeTypes) === 2 && $hasPhpunitMock) {
-			return TypeCombinator::intersect(...$otherTypeTypes);
+		if (count($otherTypeTypes) === 2) {
+			static $mockClassNames = [
+				'PHPUnit_Framework_MockObject_MockObject' => true,
+				'PHPUnit\Framework\MockObject\MockObject' => true,
+			];
+
+			foreach ($otherTypeTypes as $otherType) {
+				if ($otherType instanceof TypeWithClassName && isset($mockClassNames[$otherType->getClassName()])) {
+					return TypeCombinator::intersect(...$otherTypeTypes);
+				}
+			}
 		}
 
 		if (count($iterableTypeNodes) > 0) {
@@ -208,11 +204,11 @@ class TypeNodeResolver
 			foreach ($otherTypeTypes as &$type) {
 				if ($type->isIterable()->yes() && $type->getIterableValueType()->isSuperTypeOf($arrayTypeType)->yes()) {
 					if ($type instanceof ObjectType) {
-						$type = new IntersectionType([$type, new IterableIterableType(new MixedType(), $arrayTypeType)]);
+						$type = new IntersectionType([$type, new IterableType(new MixedType(), $arrayTypeType)]);
 					} elseif ($type instanceof ArrayType) {
 						$type = new ArrayType(new MixedType(), $arrayTypeType);
-					} elseif ($type instanceof IterableIterableType) {
-						$type = new IterableIterableType(new MixedType(), $arrayTypeType);
+					} elseif ($type instanceof IterableType) {
+						$type = new IterableType(new MixedType(), $arrayTypeType);
 					} else {
 						continue;
 					}
@@ -256,10 +252,10 @@ class TypeNodeResolver
 
 		} elseif ($mainType === 'iterable') {
 			if (count($genericTypes) === 1) { // iterable<ValueType>
-				return new IterableIterableType(new MixedType(), $genericTypes[0]);
+				return new IterableType(new MixedType(), $genericTypes[0]);
 
 			} elseif (count($genericTypes) === 2) { // iterable<KeyType, ValueType>
-				return new IterableIterableType($genericTypes[0], $genericTypes[1]);
+				return new IterableType($genericTypes[0], $genericTypes[1]);
 			}
 		}
 

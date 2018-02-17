@@ -22,25 +22,23 @@ interface Type
 
 	public function describe(): string;
 
-	public function canAccessProperties(): bool;
+	public function canAccessProperties(): TrinaryLogic;
 
 	public function hasProperty(string $propertyName): bool;
 
 	public function getProperty(string $propertyName, Scope $scope): PropertyReflection;
 
-	public function canCallMethods(): bool;
+	public function canCallMethods(): TrinaryLogic;
 
 	public function hasMethod(string $methodName): bool;
 
 	public function getMethod(string $methodName, Scope $scope): MethodReflection;
 
-	public function canAccessConstants(): bool;
+	public function canAccessConstants(): TrinaryLogic;
 
 	public function hasConstant(string $constantName): bool;
 
 	public function getConstant(string $constantName): ClassConstantReflection;
-
-	public function isDocumentableNatively(): bool;
 
 	public function isIterable(): TrinaryLogic;
 
@@ -48,9 +46,13 @@ interface Type
 
 	public function getIterableValueType(): Type;
 
+	public function isOffsetAccessible(): TrinaryLogic;
+
+	public function getOffsetValueType(): Type;
+
 	public function isCallable(): TrinaryLogic;
 
-	public function isClonable(): bool;
+	public function isCloneable(): TrinaryLogic;
 
 	public static function __set_state(array $properties): self;
 

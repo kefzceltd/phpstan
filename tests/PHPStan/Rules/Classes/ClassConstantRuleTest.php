@@ -15,7 +15,7 @@ class ClassConstantRuleTest extends \PHPStan\Testing\RuleTestCase
 		return new ClassConstantRule($broker, new RuleLevelHelper($broker, true, false, true), new ClassCaseSensitivityCheck($broker));
 	}
 
-	public function testClassConstant()
+	public function testClassConstant(): void
 	{
 		$this->analyse(
 			[
@@ -75,10 +75,7 @@ class ClassConstantRuleTest extends \PHPStan\Testing\RuleTestCase
 		);
 	}
 
-	/**
-	 * @requires PHP 7.1
-	 */
-	public function testClassConstantVisibility()
+	public function testClassConstantVisibility(): void
 	{
 		$this->analyse([__DIR__ . '/data/class-constant-visibility.php'], [
 			[

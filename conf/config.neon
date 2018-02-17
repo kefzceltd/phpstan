@@ -25,6 +25,9 @@ parameters:
 	earlyTerminatingMethodCalls: []
 	memoryLimitFile: %tmpDir%/.memory_limit
 
+extensions:
+	rules: PHPStan\DependencyInjection\RulesExtension
+
 services:
 	-
 		class: PhpParser\BuilderFactory
@@ -199,6 +202,11 @@ services:
 
 	-
 		class: PHPStan\Type\Php\ArrayFilterFunctionReturnTypeReturnTypeExtension
+		tags:
+			- phpstan.broker.dynamicFunctionReturnTypeExtension
+
+	-
+		class: PHPStan\Type\Php\ArrayKeysFunctionDynamicReturnTypeExtension
 		tags:
 			- phpstan.broker.dynamicFunctionReturnTypeExtension
 

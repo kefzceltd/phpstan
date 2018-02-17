@@ -4,11 +4,16 @@ namespace PHPStan\Analyser;
 
 use PhpParser\Node;
 use PhpParser\Node\Expr;
+use PhpParser\Node\Expr\ArrayDimFetch;
 use PhpParser\Node\Expr\BinaryOp\BooleanAnd;
 use PhpParser\Node\Expr\BinaryOp\BooleanOr;
+use PhpParser\Node\Expr\BinaryOp\LogicalAnd;
+use PhpParser\Node\Expr\BinaryOp\LogicalOr;
 use PhpParser\Node\Expr\ConstFetch;
 use PhpParser\Node\Expr\FuncCall;
 use PhpParser\Node\Expr\Instanceof_;
+use PhpParser\Node\Expr\PropertyFetch;
+use PhpParser\Node\Expr\StaticPropertyFetch;
 use PhpParser\Node\Name;
 use PHPStan\TrinaryLogic;
 use PHPStan\Type\ArrayType;
@@ -16,7 +21,7 @@ use PHPStan\Type\CallableType;
 use PHPStan\Type\FalseBooleanType;
 use PHPStan\Type\FloatType;
 use PHPStan\Type\IntegerType;
-use PHPStan\Type\IterableIterableType;
+use PHPStan\Type\IterableType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\NullType;
 use PHPStan\Type\ObjectType;
@@ -33,12 +38,12 @@ use PHPStan\Type\UnionType;
 class TypeSpecifier
 {
 
-	const CONTEXT_TRUE = 0b0001;
-	const CONTEXT_TRUTHY_BUT_NOT_TRUE = 0b0010;
-	const CONTEXT_TRUTHY = self::CONTEXT_TRUE | self::CONTEXT_TRUTHY_BUT_NOT_TRUE;
-	const CONTEXT_FALSE = 0b0100;
-	const CONTEXT_FALSEY_BUT_NOT_FALSE = 0b1000;
-	const CONTEXT_FALSEY = self::CONTEXT_FALSE | self::CONTEXT_FALSEY_BUT_NOT_FALSE;
+	private const CONTEXT_TRUE = 0b0001;
+	private const CONTEXT_TRUTHY_BUT_NOT_TRUE = 0b0010;
+	public const CONTEXT_TRUTHY = self::CONTEXT_TRUE | self::CONTEXT_TRUTHY_BUT_NOT_TRUE;
+	private const CONTEXT_FALSE = 0b0100;
+	private const CONTEXT_FALSEY_BUT_NOT_FALSE = 0b1000;
+	public const CONTEXT_FALSEY = self::CONTEXT_FALSE | self::CONTEXT_FALSEY_BUT_NOT_FALSE;
 
 	/**
 	 * @var \PhpParser\PrettyPrinter\Standard
@@ -103,7 +108,7 @@ class TypeSpecifier
 			$expressions = $this->findTypeExpressionsFromBinaryOperation($expr);
 			if ($expressions !== null) {
 				$constantName = strtolower((string) $expressions[1]->name);
-				if ($constantName === 'false') {
+				if ($constantName === 'false' || $constantName === 'null') {
 					return $this->specifyTypesInCondition(
 						$scope,
 						$expressions[0],
@@ -150,7 +155,7 @@ class TypeSpecifier
 				case 'is_resource':
 					return $this->create($innerExpr, new ResourceType(), $context);
 				case 'is_iterable':
-					return $this->create($innerExpr, new IterableIterableType(new MixedType(), new MixedType()), $context);
+					return $this->create($innerExpr, new IterableType(new MixedType(), new MixedType()), $context);
 				case 'is_string':
 					return $this->create($innerExpr, new StringType(), $context);
 				case 'is_object':
@@ -173,7 +178,12 @@ class TypeSpecifier
 							&& is_string($classNameArgExpr->name)
 							&& strtolower($classNameArgExpr->name) === 'class'
 						) {
-							$objectType = new ObjectType($scope->resolveName($classNameArgExpr->class));
+							$className = $scope->resolveName($classNameArgExpr->class);
+							if (strtolower($classNameArgExpr->class->toString()) === 'static') {
+								$objectType = new StaticType($className);
+							} else {
+								$objectType = new ObjectType($className);
+							}
 							$types = $this->create($innerExpr, $objectType, $context);
 						} elseif ($context & self::CONTEXT_TRUE) {
 							$objectType = new ObjectWithoutClassType();
@@ -191,11 +201,11 @@ class TypeSpecifier
 						return $types;
 					}
 			}
-		} elseif ($expr instanceof BooleanAnd) {
+		} elseif ($expr instanceof BooleanAnd || $expr instanceof LogicalAnd) {
 			$leftTypes = $this->specifyTypesInCondition($scope, $expr->left, $context);
 			$rightTypes = $this->specifyTypesInCondition($scope, $expr->right, $context);
 			return ($context & self::CONTEXT_TRUE) ? $leftTypes->unionWith($rightTypes) : $leftTypes->intersectWith($rightTypes);
-		} elseif ($expr instanceof BooleanOr) {
+		} elseif ($expr instanceof BooleanOr || $expr instanceof LogicalOr) {
 			$leftTypes = $this->specifyTypesInCondition($scope, $expr->left, $context);
 			$rightTypes = $this->specifyTypesInCondition($scope, $expr->right, $context);
 			return ($context & self::CONTEXT_TRUE) ? $leftTypes->intersectWith($rightTypes) : $leftTypes->unionWith($rightTypes);
@@ -208,8 +218,29 @@ class TypeSpecifier
 			&& count($expr->vars) > 0
 			&& $context & self::CONTEXT_TRUTHY
 		) {
-			$types = null;
+			$vars = [];
 			foreach ($expr->vars as $var) {
+				$vars[] = $var;
+
+				while (
+					$var instanceof ArrayDimFetch
+					|| $var instanceof PropertyFetch
+				) {
+					$var = $var->var;
+					$vars[] = $var;
+				}
+
+				while (
+					$var instanceof StaticPropertyFetch
+					&& $var->class instanceof Expr
+				) {
+					$var = $var->class;
+					$vars[] = $var;
+				}
+			}
+
+			$types = null;
+			foreach ($vars as $var) {
 				$type = $this->create($var, new NullType(), self::CONTEXT_FALSE);
 				if ($types === null) {
 					$types = $type;
@@ -233,7 +264,7 @@ class TypeSpecifier
 	 * @param \PhpParser\Node\Expr\BinaryOp $binaryOperation
 	 * @return array|null
 	 */
-	private function findTypeExpressionsFromBinaryOperation(Node\Expr\BinaryOp $binaryOperation)
+	private function findTypeExpressionsFromBinaryOperation(Node\Expr\BinaryOp $binaryOperation): ?array
 	{
 		if ($binaryOperation->left instanceof ConstFetch) {
 			return [$binaryOperation->right, $binaryOperation->left];

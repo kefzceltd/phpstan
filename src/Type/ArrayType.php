@@ -3,14 +3,18 @@
 namespace PHPStan\Type;
 
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Traits\NonObjectTypeTrait;
 
 class ArrayType implements StaticResolvableType
 {
 
-	use IterableTypeTrait;
+	use NonObjectTypeTrait;
 
 	/** @var \PHPStan\Type\Type */
 	private $keyType;
+
+	/** @var \PHPStan\Type\Type */
+	private $itemType;
 
 	/** @var bool */
 	private $itemTypeInferredFromLiteralArray;
@@ -34,18 +38,25 @@ class ArrayType implements StaticResolvableType
 		$this->callable = $callable ?? TrinaryLogic::createMaybe()->and((new StringType)->isSuperTypeOf($itemType));
 	}
 
+	public function getItemType(): Type
+	{
+		return $this->itemType;
+	}
+
 	/**
 	 * @return string[]
 	 */
 	public function getReferencedClasses(): array
 	{
-		return $this->getItemType()->getReferencedClasses();
+		return array_merge(
+			$this->keyType->getReferencedClasses(),
+			$this->getItemType()->getReferencedClasses()
+		);
 	}
 
-	public static function createDeepArrayType(NestedArrayItemType $nestedItemType, bool $nullable): self
+	public static function createDeepArrayType(Type $itemType, int $depth, bool $nullable): self
 	{
-		$itemType = $nestedItemType->getItemType();
-		for ($i = 0; $i < $nestedItemType->getDepth() - 1; $i++) {
+		for ($i = 0; $i < $depth - 1; $i++) {
 			$itemType = new self(new MixedType(), $itemType, false);
 		}
 
@@ -98,11 +109,6 @@ class ArrayType implements StaticResolvableType
 		return sprintf('array<%s, %s>', $this->keyType->describe(), $this->itemType->describe());
 	}
 
-	public function isDocumentableNatively(): bool
-	{
-		return true;
-	}
-
 	public function resolveStatic(string $className): Type
 	{
 		if ($this->getItemType() instanceof StaticResolvableType) {
@@ -142,6 +148,16 @@ class ArrayType implements StaticResolvableType
 	}
 
 	public function getIterableValueType(): Type
+	{
+		return $this->getItemType();
+	}
+
+	public function isOffsetAccessible(): TrinaryLogic
+	{
+		return TrinaryLogic::createYes();
+	}
+
+	public function getOffsetValueType(): Type
 	{
 		return $this->getItemType();
 	}

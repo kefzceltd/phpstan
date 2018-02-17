@@ -27,7 +27,7 @@ class UniversalObjectCratesClassReflectionExtension
 		$this->classes = $classes;
 	}
 
-	public function setBroker(Broker $broker)
+	public function setBroker(Broker $broker): void
 	{
 		$this->broker = $broker;
 	}
@@ -39,10 +39,6 @@ class UniversalObjectCratesClassReflectionExtension
 				return $this->broker->hasClass($class);
 			}));
 		}
-		if ($classReflection->hasNativeProperty($propertyName)) {
-			return false;
-		}
-
 		foreach ($this->filteredClasses as $className) {
 			if (
 				$classReflection->getName() === $className

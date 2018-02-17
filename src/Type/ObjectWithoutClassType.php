@@ -7,9 +7,16 @@ use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
 use PHPStan\Reflection\PropertyReflection;
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Traits\MaybeCallableTypeTrait;
+use PHPStan\Type\Traits\MaybeIterableTypeTrait;
+use PHPStan\Type\Traits\MaybeOffsetAccessibleTypeTrait;
 
 class ObjectWithoutClassType implements Type
 {
+
+	use MaybeCallableTypeTrait;
+	use MaybeIterableTypeTrait;
+	use MaybeOffsetAccessibleTypeTrait;
 
 	public function hasProperty(string $propertyName): bool
 	{
@@ -56,14 +63,14 @@ class ObjectWithoutClassType implements Type
 		return 'object';
 	}
 
-	public function canAccessProperties(): bool
+	public function canAccessProperties(): TrinaryLogic
 	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
 	public function hasMethod(string $methodName): bool
@@ -76,9 +83,9 @@ class ObjectWithoutClassType implements Type
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
 	public function hasConstant(string $constantName): bool
@@ -91,34 +98,9 @@ class ObjectWithoutClassType implements Type
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function isDocumentableNatively(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		return true;
-	}
-
-	public function isIterable(): TrinaryLogic
-	{
-		return TrinaryLogic::createMaybe();
-	}
-
-	public function getIterableKeyType(): Type
-	{
-		return new MixedType();
-	}
-
-	public function getIterableValueType(): Type
-	{
-		return new MixedType();
-	}
-
-	public function isCallable(): TrinaryLogic
-	{
-		return TrinaryLogic::createMaybe();
-	}
-
-	public function isClonable(): bool
-	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
 	public static function __set_state(array $properties): Type

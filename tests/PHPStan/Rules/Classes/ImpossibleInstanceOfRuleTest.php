@@ -13,7 +13,7 @@ class ImpossibleInstanceOfRuleTest extends \PHPStan\Testing\RuleTestCase
 		return new ImpossibleInstanceOfRule($this->checkAlwaysTrueInstanceOf);
 	}
 
-	public function testInstanceof()
+	public function testInstanceof(): void
 	{
 		$this->checkAlwaysTrueInstanceOf = true;
 		$this->analyse(
@@ -79,11 +79,15 @@ class ImpossibleInstanceOfRuleTest extends \PHPStan\Testing\RuleTestCase
 					'Instanceof between ImpossibleInstanceOf\Test and ImpossibleInstanceOf\Test will always evaluate to true.',
 					160,
 				],
+				[
+					'Instanceof between callable and ImpossibleInstanceOf\FinalClassWithoutInvoke will always evaluate to false.',
+					204,
+				],
 			]
 		);
 	}
 
-	public function testInstanceofWithoutAlwaysTrue()
+	public function testInstanceofWithoutAlwaysTrue(): void
 	{
 		$this->checkAlwaysTrueInstanceOf = false;
 		$this->analyse(
@@ -112,6 +116,10 @@ class ImpossibleInstanceOfRuleTest extends \PHPStan\Testing\RuleTestCase
 				[
 					'Instanceof between ImpossibleInstanceOf\Test|null and ImpossibleInstanceOf\Lorem will always evaluate to false.',
 					155,
+				],
+				[
+					'Instanceof between callable and ImpossibleInstanceOf\FinalClassWithoutInvoke will always evaluate to false.',
+					204,
 				],
 			]
 		);

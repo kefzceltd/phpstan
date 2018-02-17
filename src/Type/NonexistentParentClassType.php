@@ -7,20 +7,24 @@ use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
 use PHPStan\Reflection\PropertyReflection;
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Traits\NonIterableTypeTrait;
+use PHPStan\Type\Traits\NonOffsetAccessibleTypeTrait;
 
 class NonexistentParentClassType implements Type
 {
 
 	use JustNullableTypeTrait;
+	use NonIterableTypeTrait;
+	use NonOffsetAccessibleTypeTrait;
 
 	public function describe(): string
 	{
 		return 'parent';
 	}
 
-	public function canAccessProperties(): bool
+	public function canAccessProperties(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 	public function hasProperty(string $propertyName): bool
@@ -33,9 +37,9 @@ class NonexistentParentClassType implements Type
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 	public function hasMethod(string $methodName): bool
@@ -48,9 +52,9 @@ class NonexistentParentClassType implements Type
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 	public function hasConstant(string $constantName): bool
@@ -68,9 +72,9 @@ class NonexistentParentClassType implements Type
 		return TrinaryLogic::createNo();
 	}
 
-	public function isClonable(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createNo();
 	}
 
 	public static function __set_state(array $properties): Type

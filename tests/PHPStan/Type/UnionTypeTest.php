@@ -39,7 +39,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param UnionType $type
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsCallable(UnionType $type, TrinaryLogic $expectedResult)
+	public function testIsCallable(UnionType $type, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -128,7 +128,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$unionTypeA,
-			new IterableIterableType(new MixedType(), new MixedType()),
+			new IterableType(new MixedType(), new MixedType()),
 			TrinaryLogic::createNo(),
 		];
 
@@ -141,7 +141,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 		$unionTypeB = new UnionType([
 			new IntersectionType([
 				new ObjectType('ArrayObject'),
-				new IterableIterableType(new MixedType(), new ObjectType('DatePeriod')),
+				new IterableType(new MixedType(), new ObjectType('DatePeriod')),
 			]),
 			new ArrayType(new MixedType(), new ObjectType('DatePeriod')),
 		]);
@@ -178,13 +178,13 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$unionTypeB,
-			new IterableIterableType(new MixedType(), new ObjectType('DatePeriod')),
+			new IterableType(new MixedType(), new ObjectType('DatePeriod')),
 			TrinaryLogic::createMaybe(),
 		];
 
 		yield [
 			$unionTypeB,
-			new IterableIterableType(new MixedType(), new MixedType()),
+			new IterableType(new MixedType(), new MixedType()),
 			TrinaryLogic::createMaybe(),
 		];
 
@@ -208,20 +208,20 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$unionTypeB,
-			new IterableIterableType(new MixedType(), new ObjectType('DateTime')),
+			new IterableType(new MixedType(), new ObjectType('DateTime')),
 			TrinaryLogic::createNo(),
 		];
 
 		yield [
 			$unionTypeB,
 			new CallableType(),
-			TrinaryLogic::createNo(),
+			TrinaryLogic::createMaybe(),
 		];
 
 		yield [
 			$unionTypeB,
 			new IntersectionType([new MixedType(), new CallableType()]),
-			TrinaryLogic::createNo(),
+			TrinaryLogic::createMaybe(),
 		];
 
 		yield [
@@ -237,7 +237,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsSuperTypeOf(UnionType $type, Type $otherType, TrinaryLogic $expectedResult)
+	public function testIsSuperTypeOf(UnionType $type, Type $otherType, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -332,7 +332,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$unionTypeA,
-			new IterableIterableType(new MixedType(), new MixedType()),
+			new IterableType(new MixedType(), new MixedType()),
 			TrinaryLogic::createNo(),
 		];
 
@@ -345,7 +345,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 		$unionTypeB = new UnionType([
 			new IntersectionType([
 				new ObjectType('ArrayObject'),
-				new IterableIterableType(new MixedType(), new ObjectType('Item')),
+				new IterableType(new MixedType(), new ObjectType('Item')),
 				new CallableType(),
 			]),
 			new ArrayType(new MixedType(), new ObjectType('Item')),
@@ -412,7 +412,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsSubTypeOf(UnionType $type, Type $otherType, TrinaryLogic $expectedResult)
+	public function testIsSubTypeOf(UnionType $type, Type $otherType, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -430,7 +430,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsSubTypeOfInversed(UnionType $type, Type $otherType, TrinaryLogic $expectedResult)
+	public function testIsSubTypeOfInversed(UnionType $type, Type $otherType, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 

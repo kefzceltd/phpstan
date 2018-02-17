@@ -69,7 +69,7 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return sprintf('static(%s)', $this->baseClass);
 	}
 
-	public function canAccessProperties(): bool
+	public function canAccessProperties(): TrinaryLogic
 	{
 		return $this->staticObjectType->canAccessProperties();
 	}
@@ -84,7 +84,7 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return $this->staticObjectType->getProperty($propertyName, $scope);
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
 		return $this->staticObjectType->canCallMethods();
 	}
@@ -99,7 +99,7 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return $this->staticObjectType->getMethod($methodName, $scope);
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
 		return $this->staticObjectType->canAccessConstants();
 	}
@@ -112,11 +112,6 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 	public function getConstant(string $constantName): ClassConstantReflection
 	{
 		return $this->staticObjectType->getConstant($constantName);
-	}
-
-	public function isDocumentableNatively(): bool
-	{
-		return $this->staticObjectType->isDocumentableNatively();
 	}
 
 	public function resolveStatic(string $className): Type
@@ -132,18 +127,7 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 
 	public function isIterable(): TrinaryLogic
 	{
-		$broker = Broker::getInstance();
-
-		if (!$broker->hasClass($this->baseClass)) {
-			return TrinaryLogic::createMaybe();
-		}
-
-		$classReflection = $broker->getClass($this->baseClass);
-		if ($classReflection->isSubclassOf(\Traversable::class) || $classReflection->getName() === \Traversable::class) {
-			return TrinaryLogic::createYes();
-		}
-
-		return TrinaryLogic::createNo();
+		return $this->staticObjectType->isInstanceOf(\Traversable::class);
 	}
 
 	public function getIterableKeyType(): Type
@@ -200,6 +184,16 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return new ErrorType();
 	}
 
+	public function isOffsetAccessible(): TrinaryLogic
+	{
+		return $this->staticObjectType->isInstanceOf(\ArrayAccess::class);
+	}
+
+	public function getOffsetValueType(): Type
+	{
+		return $this->staticObjectType->getOffsetValueType();
+	}
+
 	public function isCallable(): TrinaryLogic
 	{
 		$broker = Broker::getInstance();
@@ -215,9 +209,9 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return TrinaryLogic::createNo();
 	}
 
-	public function isClonable(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
 	public static function __set_state(array $properties): Type

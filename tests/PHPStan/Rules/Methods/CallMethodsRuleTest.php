@@ -29,7 +29,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		);
 	}
 
-	public function testCallMethods()
+	public function testCallMethods(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -231,10 +231,26 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 				'Parameter #1 $param of method Test\IncompatiblePhpDocNullableTypeIssue::doFoo() expects string|null, int given.',
 				551,
 			],
+			[
+				'Parameter #1 $i of method Test\TernaryEvaluation::doBar() expects int, false given.',
+				565,
+			],
+			[
+				'Parameter #1 $i of method Test\TernaryEvaluation::doBar() expects int, Test\Foo given.',
+				567,
+			],
+			[
+				'Parameter #1 $i of method Test\TernaryEvaluation::doBar() expects int, false given.',
+				568,
+			],
+			[
+				'Parameter #1 $s of method Test\ForeachSituation::takesInt() expects int|null, string|null given.',
+				595,
+			],
 		]);
 	}
 
-	public function testCallMethodsOnThisOnly()
+	public function testCallMethodsOnThisOnly(): void
 	{
 		$this->checkThisOnly = true;
 		$this->checkNullables = true;
@@ -348,10 +364,26 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 				'Parameter #1 $param of method Test\IncompatiblePhpDocNullableTypeIssue::doFoo() expects string|null, int given.',
 				551,
 			],
+			[
+				'Parameter #1 $i of method Test\TernaryEvaluation::doBar() expects int, false given.',
+				565,
+			],
+			[
+				'Parameter #1 $i of method Test\TernaryEvaluation::doBar() expects int, Test\Foo given.',
+				567,
+			],
+			[
+				'Parameter #1 $i of method Test\TernaryEvaluation::doBar() expects int, false given.',
+				568,
+			],
+			[
+				'Parameter #1 $s of method Test\ForeachSituation::takesInt() expects int|null, string|null given.',
+				595,
+			],
 		]);
 	}
 
-	public function testCallTraitMethods()
+	public function testCallTraitMethods(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -364,7 +396,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testCallTraitOverridenMethods()
+	public function testCallTraitOverridenMethods(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -372,7 +404,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		$this->analyse([__DIR__ . '/data/call-trait-overridden-methods.php'], []);
 	}
 
-	public function testCallInterfaceMethods()
+	public function testCallInterfaceMethods(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -385,7 +417,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testClosureBind()
+	public function testClosureBind(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -422,7 +454,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testCallVariadicMethods()
+	public function testCallVariadicMethods(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -459,7 +491,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testCallToIncorrectCaseMethodName()
+	public function testCallToIncorrectCaseMethodName(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -472,10 +504,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	/**
-	 * @requires PHP 7.1
-	 */
-	public function testNullableParameters()
+	public function testNullableParameters(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -496,7 +525,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testProtectedMethodCallFromParent()
+	public function testProtectedMethodCallFromParent(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -504,7 +533,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		$this->analyse([__DIR__ . '/data/protected-method-call-from-parent.php'], []);
 	}
 
-	public function testSiblingMethodPrototype()
+	public function testSiblingMethodPrototype(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -512,7 +541,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		$this->analyse([__DIR__ . '/data/sibling-method-prototype.php'], []);
 	}
 
-	public function testOverridenMethodPrototype()
+	public function testOverridenMethodPrototype(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -520,7 +549,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		$this->analyse([__DIR__ . '/data/overriden-method-prototype.php'], []);
 	}
 
-	public function testCallMethodWithInheritDoc()
+	public function testCallMethodWithInheritDoc(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -537,7 +566,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testNegatedInstanceof()
+	public function testNegatedInstanceof(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -545,7 +574,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		$this->analyse([__DIR__ . '/data/negated-instanceof.php'], []);
 	}
 
-	public function testInvokeMagicInvokeMethod()
+	public function testInvokeMagicInvokeMethod(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -558,7 +587,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testCheckNullables()
+	public function testCheckNullables(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;
@@ -575,7 +604,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testDoNotCheckNullables()
+	public function testDoNotCheckNullables(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = false;
@@ -588,7 +617,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testMysqliQuery()
+	public function testMysqliQuery(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = false;
@@ -601,7 +630,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testCallMethodsNullIssue()
+	public function testCallMethodsNullIssue(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = false;
@@ -623,10 +652,9 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 
 	/**
 	 * @dataProvider dataIterable
-	 * @requires PHP 7.1
 	 * @param bool $checkNullables
 	 */
-	public function testIterables(bool $checkNullables)
+	public function testIterables(bool $checkNullables): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = $checkNullables;
@@ -683,7 +711,7 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testAcceptThrowable()
+	public function testAcceptThrowable(): void
 	{
 		$this->checkThisOnly = false;
 		$this->checkNullables = true;

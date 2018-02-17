@@ -66,6 +66,8 @@ You can also install official framework-specific extensions:
 Unofficial extensions for other frameworks and libraries are also available:
 
 * [Phony](https://github.com/eloquent/phpstan-phony)
+* [Symfony Framework](https://github.com/lookyman/phpstan-symfony)
+* [Prophecy](https://github.com/Jan0707/phpstan-prophecy)
 
 New extensions are becoming available on a regular basis!
 
@@ -100,7 +102,7 @@ To let PHPStan analyse your codebase, you have use the `analyse` command and poi
 
 So, for example if you have your classes in directories `src` and `tests`, you can run PHPStan like this:
 
-```
+```bash
 vendor/bin/phpstan analyse src tests
 ```
 
@@ -131,15 +133,34 @@ You can also use `--level max` as an alias for the highest level. This will ensu
 
 Config file is passed to the `phpstan` executable with `-c` option:
 
-```
+```bash
 vendor/bin/phpstan analyse -l 4 -c phpstan.neon src tests
 ```
 
 When using a custom project config file, you have to pass the `--level` (`-l`)
 option to `analyse` command (default value does not apply here).
 
+If you do not provide config file explicitly, PHPStan will look for
+files named `phpstan.neon` or `phpstan.neon.dist` in current directory.
+
+The resolution priority is as such:
+1. If config file is provided on command line, it is used.
+2. If config file `phpstan.neon` exists in current directory, it will be used.
+3. If config file `phpstan.neon.dist` exists in current directory, it will be used.
+4. If none of the above is true, no config will be used.
+
 [NEON file format](https://ne-on.org/) is very similar to YAML.
 All the following options are part of the `parameters` section.
+
+#### Configuration variables
+ - `%rootDir%` - root directory where PHPStan resides (i.e. `vendor/phpstan/phpstan` in Composer installation)
+ - `%currentWorkingDirectory%` - current working directory where PHPStan was executed
+
+#### Configuration options
+
+ - `tmpDir` - specifies the temporary directory used by PHPStan cache (defaults to `sys_get_temp_dir() . '/phpstan'`)
+ - `level` - specifies analysis level - if specified, `-l` option is not required
+ - `paths` - specifies analysed paths - if specified, paths are not required to be passed as arguments
 
 ### Autoloading
 
@@ -288,7 +309,7 @@ parameters:
 			- sendResponse
 ```
 
-### Ignore error messages with regular expresions
+### Ignore error messages with regular expressions
 
 If some issue in your code base is not easy to fix or just simply want to deal with it later,
 you can exclude error messages from the analysis result with regular expressions:
@@ -366,7 +387,7 @@ errorFormatter.awesome:
 
 Use the name part after `errorFormatter.` as the CLI option value:
 
-```
+```bash
 vendor/bin/phpstan analyse -c phpstan.neon -l 4 --errorFormat awesome src tests
 ```
 
@@ -583,8 +604,12 @@ Any contributions are welcome.
 
 You can either run the whole build including linting and coding standards using
 
-`vendor/bin/phing`
+```bash
+vendor/bin/phing
+```
 
 or run only tests using
 
-`vendor/bin/phing tests`
+```bash
+vendor/bin/phing tests
+```

@@ -36,7 +36,7 @@ use PHPStan\Type\CallableType;
 use PHPStan\Type\ErrorType;
 use PHPStan\Type\FloatType;
 use PHPStan\Type\IntegerType;
-use PHPStan\Type\IterableIterableType;
+use PHPStan\Type\IterableType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\NonexistentParentClassType;
 use PHPStan\Type\NullType;
@@ -110,6 +110,11 @@ class Scope
 	private $variableTypes;
 
 	/**
+	 * @var \PHPStan\Type\Type[]
+	 */
+	private $moreSpecificTypes;
+
+	/**
 	 * @var string|null
 	 */
 	private $inClosureBindScopeClass;
@@ -128,11 +133,6 @@ class Scope
 	 * @var bool
 	 */
 	private $negated;
-
-	/**
-	 * @var \PHPStan\Type\Type[]
-	 */
-	private $moreSpecificTypes;
 
 	/**
 	 * @var bool
@@ -155,11 +155,11 @@ class Scope
 	 * @param \PHPStan\Reflection\ParametersAcceptor|null $function
 	 * @param string|null $namespace
 	 * @param \PHPStan\Analyser\VariableTypeHolder[] $variablesTypes
+	 * @param \PHPStan\Type\Type[] $moreSpecificTypes
 	 * @param string|null $inClosureBindScopeClass
 	 * @param \PHPStan\Type\Type|null $inAnonymousFunctionReturnType
 	 * @param \PhpParser\Node\Expr\FuncCall|\PhpParser\Node\Expr\MethodCall|\PhpParser\Node\Expr\StaticCall|null $inFunctionCall
 	 * @param bool $negated
-	 * @param \PHPStan\Type\Type[] $moreSpecificTypes
 	 * @param bool $inFirstLevelStatement
 	 * @param string[] $currentlyAssignedExpressions
 	 */
@@ -168,17 +168,17 @@ class Scope
 		\PhpParser\PrettyPrinter\Standard $printer,
 		TypeSpecifier $typeSpecifier,
 		string $file,
-		string $analysedContextFile = null,
+		?string $analysedContextFile = null,
 		bool $declareStrictTypes = false,
-		ClassReflection $classReflection = null,
-		\PHPStan\Reflection\ParametersAcceptor $function = null,
-		string $namespace = null,
+		?ClassReflection $classReflection = null,
+		?\PHPStan\Reflection\ParametersAcceptor $function = null,
+		?string $namespace = null,
 		array $variablesTypes = [],
-		string $inClosureBindScopeClass = null,
-		Type $inAnonymousFunctionReturnType = null,
-		Expr $inFunctionCall = null,
-		bool $negated = false,
 		array $moreSpecificTypes = [],
+		?string $inClosureBindScopeClass = null,
+		?Type $inAnonymousFunctionReturnType = null,
+		?Expr $inFunctionCall = null,
+		bool $negated = false,
 		bool $inFirstLevelStatement = true,
 		array $currentlyAssignedExpressions = []
 	)
@@ -197,11 +197,11 @@ class Scope
 		$this->function = $function;
 		$this->namespace = $namespace;
 		$this->variableTypes = $variablesTypes;
+		$this->moreSpecificTypes = $moreSpecificTypes;
 		$this->inClosureBindScopeClass = $inClosureBindScopeClass;
 		$this->inAnonymousFunctionReturnType = $inAnonymousFunctionReturnType;
 		$this->inFunctionCall = $inFunctionCall;
 		$this->negated = $negated;
-		$this->moreSpecificTypes = $moreSpecificTypes;
 		$this->inFirstLevelStatement = $inFirstLevelStatement;
 		$this->currentlyAssignedExpressions = $currentlyAssignedExpressions;
 	}
@@ -245,26 +245,17 @@ class Scope
 		return $classReflection;
 	}
 
-	/**
-	 * @return null|\PHPStan\Reflection\ParametersAcceptor
-	 */
-	public function getFunction()
+	public function getFunction(): ?\PHPStan\Reflection\ParametersAcceptor
 	{
 		return $this->function;
 	}
 
-	/**
-	 * @return null|string
-	 */
-	public function getFunctionName()
+	public function getFunctionName(): ?string
 	{
 		return $this->function !== null ? $this->function->getName() : null;
 	}
 
-	/**
-	 * @return null|string
-	 */
-	public function getNamespace()
+	public function getNamespace(): ?string
 	{
 		return $this->namespace;
 	}
@@ -300,10 +291,7 @@ class Scope
 		return $this->inAnonymousFunctionReturnType !== null;
 	}
 
-	/**
-	 * @return \PHPStan\Type\Type|null
-	 */
-	public function getAnonymousFunctionReturnType()
+	public function getAnonymousFunctionReturnType(): ?\PHPStan\Type\Type
 	{
 		return $this->inAnonymousFunctionReturnType;
 	}
@@ -330,6 +318,8 @@ class Scope
 		if (
 			$node instanceof \PhpParser\Node\Expr\BinaryOp\BooleanAnd
 			|| $node instanceof \PhpParser\Node\Expr\BinaryOp\BooleanOr
+			|| $node instanceof \PhpParser\Node\Expr\BinaryOp\LogicalAnd
+			|| $node instanceof \PhpParser\Node\Expr\BinaryOp\LogicalOr
 			|| $node instanceof \PhpParser\Node\Expr\BooleanNot
 			|| $node instanceof \PhpParser\Node\Expr\BinaryOp\LogicalXor
 			|| $node instanceof Expr\BinaryOp\Greater
@@ -369,20 +359,14 @@ class Scope
 		}
 
 		if ($node instanceof Expr\Ternary) {
-			$elseType = $this->getType($node->else);
-			if ($node->if === null) {
-				return TypeCombinator::union(
-					TypeCombinator::removeNull($this->getType($node->cond)),
-					$elseType
-				);
-			}
-
 			$conditionScope = $this->filterByTruthyValue($node->cond);
-			$ifType = $conditionScope->getType($node->if);
 			$negatedConditionScope = $this->filterByFalseyValue($node->cond);
 			$elseType = $negatedConditionScope->getType($node->else);
+			if ($node->if === null) {
+				return TypeCombinator::union($conditionScope->getType($node->cond), $elseType);
+			}
 
-			return TypeCombinator::union($ifType, $elseType);
+			return TypeCombinator::union($conditionScope->getType($node->if), $elseType);
 		}
 
 		if ($node instanceof Expr\BinaryOp\Coalesce) {
@@ -565,7 +549,7 @@ class Scope
 			}
 
 			$scalarKeysTypes = array_map(function ($value): Type {
-				return $this->getTypeFromValue($value);
+				return $this->getTypeFromValue($value) ?? new MixedType();
 			}, array_keys($arrayWithKeys));
 
 			return new ArrayType(
@@ -634,10 +618,8 @@ class Scope
 		}
 
 		if ($node instanceof Expr\ArrayDimFetch && $node->dim !== null) {
-			$arrayType = $this->getType($node->var);
-			if ($arrayType instanceof ArrayType) {
-				return $arrayType->getItemType();
-			}
+			$offsetAccessibleType = $this->getType($node->var);
+			return $offsetAccessibleType->getOffsetValueType();
 		}
 
 		if ($node instanceof MethodCall && is_string($node->name)) {
@@ -793,7 +775,7 @@ class Scope
 	 * @param mixed $value
 	 * @return Type|null
 	 */
-	private function getTypeFromValue($value)
+	private function getTypeFromValue($value): ?Type
 	{
 		if (is_int($value)) {
 			return new IntegerType();
@@ -809,12 +791,12 @@ class Scope
 			return new ArrayType(
 				$this->getCombinedType(
 					array_map(function ($value): Type {
-						return $this->getTypeFromValue($value);
+						return $this->getTypeFromValue($value) ?? new MixedType();
 					}, array_keys($value))
 				),
 				$this->getCombinedType(
 					array_map(function ($value): Type {
-						return $this->getTypeFromValue($value);
+						return $this->getTypeFromValue($value) ?? new MixedType();
 					}, array_values($value))
 				),
 				false
@@ -875,11 +857,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$this->getVariableTypes(),
+			$this->moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
-			$this->isNegated(),
-			$this->moreSpecificTypes
+			$this->isNegated()
 		);
 	}
 
@@ -952,6 +934,7 @@ class Scope
 			$functionReflection,
 			$this->getNamespace(),
 			$variableTypes,
+			[],
 			null,
 			null
 		);
@@ -997,11 +980,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$variableTypes,
+			$this->moreSpecificTypes,
 			$scopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
-			$this->isNegated(),
-			$this->moreSpecificTypes
+			$this->isNegated()
 		);
 	}
 
@@ -1063,6 +1046,7 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$variableTypes,
+			[],
 			$this->inClosureBindScopeClass,
 			$returnType,
 			$this->getInFunctionCall()
@@ -1127,7 +1111,7 @@ class Scope
 			}
 			return new ObjectType($className);
 		} elseif ($type === 'iterable') {
-			return new IterableIterableType(new MixedType(), new MixedType());
+			return new IterableType(new MixedType(), new MixedType());
 		} elseif ($type === 'void') {
 			return new VoidType();
 		} elseif ($type === 'object') {
@@ -1186,11 +1170,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$this->getVariableTypes(),
+			$this->moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$functionCall,
 			$this->isNegated(),
-			$this->moreSpecificTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1211,11 +1195,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$this->getVariableTypes(),
+			$this->moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$this->moreSpecificTypes,
 			$this->isInFirstLevelStatement(),
 			$currentlyAssignedExpressions
 		);
@@ -1262,11 +1246,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$variableTypes,
+			$moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$moreSpecificTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1290,11 +1274,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$variableTypes,
+			$this->moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$this->moreSpecificTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1354,11 +1338,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$intersectedVariableTypeHolders,
+			$intersectedSpecifiedTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$intersectedSpecifiedTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1386,11 +1370,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$variableTypes,
+			$specifiedTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$specifiedTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1437,11 +1421,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$variableTypeHolders,
+			$specifiedTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$specifiedTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1486,11 +1470,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$ourVariableTypeHolders,
+			$moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$moreSpecificTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1520,11 +1504,11 @@ class Scope
 				$scope->getFunction(),
 				$scope->getNamespace(),
 				$variableTypes,
+				$scope->moreSpecificTypes,
 				$scope->inClosureBindScopeClass,
 				$scope->getAnonymousFunctionReturnType(),
 				$scope->getInFunctionCall(),
 				$scope->isNegated(),
-				$scope->moreSpecificTypes,
 				$scope->inFirstLevelStatement
 			);
 		}
@@ -1549,11 +1533,11 @@ class Scope
 				$this->getFunction(),
 				$this->getNamespace(),
 				$this->getVariableTypes(),
+				$moreSpecificTypes,
 				$this->inClosureBindScopeClass,
 				$this->getAnonymousFunctionReturnType(),
 				$this->getInFunctionCall(),
 				$this->isNegated(),
-				$moreSpecificTypes,
 				$this->inFirstLevelStatement
 			);
 		}
@@ -1625,11 +1609,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$this->getVariableTypes(),
+			$this->moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			!$this->isNegated(),
-			$this->moreSpecificTypes,
 			$this->inFirstLevelStatement
 		);
 	}
@@ -1647,11 +1631,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$this->getVariableTypes(),
+			$this->moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$this->moreSpecificTypes,
 			true,
 			$this->currentlyAssignedExpressions
 		);
@@ -1670,11 +1654,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$this->getVariableTypes(),
+			$this->moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$this->moreSpecificTypes,
 			false,
 			$this->currentlyAssignedExpressions
 		);
@@ -1708,11 +1692,11 @@ class Scope
 			$this->getFunction(),
 			$this->getNamespace(),
 			$this->getVariableTypes(),
+			$moreSpecificTypes,
 			$this->inClosureBindScopeClass,
 			$this->getAnonymousFunctionReturnType(),
 			$this->getInFunctionCall(),
 			$this->isNegated(),
-			$moreSpecificTypes,
 			$this->inFirstLevelStatement
 		);
 	}

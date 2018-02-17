@@ -13,7 +13,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		$intersectionType = new IntersectionType([
 			new ObjectType('Collection'),
-			new IterableIterableType(new MixedType(), new ObjectType('Item')),
+			new IterableType(new MixedType(), new ObjectType('Item')),
 		]);
 
 		yield [
@@ -30,7 +30,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$intersectionType,
-			new IterableIterableType(new MixedType(), new ObjectType('Item')),
+			new IterableType(new MixedType(), new ObjectType('Item')),
 			false,
 		];
 	}
@@ -41,7 +41,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param bool $expectedResult
 	 */
-	public function testAccepts(IntersectionType $type, Type $otherType, bool $expectedResult)
+	public function testAccepts(IntersectionType $type, Type $otherType, bool $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -59,16 +59,16 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 			[
 				new IntersectionType([
 					new ArrayType(new MixedType(), new MixedType(), false, TrinaryLogic::createNo()),
-					new IterableIterableType(new MixedType(), new ObjectType('Item')),
+					new IterableType(new MixedType(), new ObjectType('Item')),
 				]),
 				TrinaryLogic::createNo(),
 			],
 			[
 				new IntersectionType([
 					new ObjectType('ArrayObject'),
-					new IterableIterableType(new MixedType(), new ObjectType('Item')),
+					new IterableType(new MixedType(), new ObjectType('Item')),
 				]),
-				TrinaryLogic::createNo(),
+				TrinaryLogic::createMaybe(),
 			],
 		];
 	}
@@ -78,7 +78,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param IntersectionType $type
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsCallable(IntersectionType $type, TrinaryLogic $expectedResult)
+	public function testIsCallable(IntersectionType $type, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -96,7 +96,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		$intersectionTypeA = new IntersectionType([
 			new ObjectType('ArrayObject'),
-			new IterableIterableType(new MixedType(), new ObjectType('Item')),
+			new IterableType(new MixedType(), new ObjectType('Item')),
 		]);
 
 		yield [
@@ -113,7 +113,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$intersectionTypeA,
-			new IterableIterableType(new MixedType(), new ObjectType('Item')),
+			new IterableType(new MixedType(), new ObjectType('Item')),
 			TrinaryLogic::createMaybe(),
 		];
 
@@ -140,7 +140,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsSuperTypeOf(IntersectionType $type, Type $otherType, TrinaryLogic $expectedResult)
+	public function testIsSuperTypeOf(IntersectionType $type, Type $otherType, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -158,7 +158,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		$intersectionTypeA = new IntersectionType([
 			new ObjectType('ArrayObject'),
-			new IterableIterableType(new MixedType(), new ObjectType('Item')),
+			new IterableType(new MixedType(), new ObjectType('Item')),
 		]);
 
 		yield [
@@ -175,7 +175,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$intersectionTypeA,
-			new IterableIterableType(new MixedType(), new ObjectType('Item')),
+			new IterableType(new MixedType(), new ObjectType('Item')),
 			TrinaryLogic::createYes(),
 		];
 
@@ -187,7 +187,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$intersectionTypeA,
-			new IterableIterableType(new MixedType(), new ObjectType('Unknown')),
+			new IterableType(new MixedType(), new ObjectType('Unknown')),
 			TrinaryLogic::createMaybe(),
 		];
 
@@ -232,7 +232,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 
 		$intersectionTypeD = new IntersectionType([
 			new ObjectType('ArrayObject'),
-			new IterableIterableType(new MixedType(), new ObjectType('DatePeriod')),
+			new IterableType(new MixedType(), new ObjectType('DatePeriod')),
 		]);
 
 		yield [
@@ -257,7 +257,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsSubTypeOf(IntersectionType $type, Type $otherType, TrinaryLogic $expectedResult)
+	public function testIsSubTypeOf(IntersectionType $type, Type $otherType, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -275,7 +275,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsSubTypeOfInversed(IntersectionType $type, Type $otherType, TrinaryLogic $expectedResult)
+	public function testIsSubTypeOfInversed(IntersectionType $type, Type $otherType, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 

@@ -3,6 +3,7 @@
 namespace PHPStan\Testing;
 
 use PHPStan\Broker\Broker;
+use PHPStan\Broker\BrokerFactory;
 use PHPStan\Cache\Cache;
 use PHPStan\Cache\MemoryCacheStorage;
 use PHPStan\DependencyInjection\ContainerFactory;
@@ -14,20 +15,14 @@ use PHPStan\PhpDoc\TypeStringResolver;
 use PHPStan\Reflection\Annotations\AnnotationsMethodsClassReflectionExtension;
 use PHPStan\Reflection\Annotations\AnnotationsPropertiesClassReflectionExtension;
 use PHPStan\Reflection\ClassReflection;
-use PHPStan\Reflection\FunctionReflection;
 use PHPStan\Reflection\FunctionReflectionFactory;
 use PHPStan\Reflection\Php\PhpClassReflectionExtension;
+use PHPStan\Reflection\Php\PhpFunctionReflection;
 use PHPStan\Reflection\Php\PhpMethodReflection;
 use PHPStan\Reflection\Php\PhpMethodReflectionFactory;
 use PHPStan\Reflection\Php\UniversalObjectCratesClassReflectionExtension;
 use PHPStan\Reflection\PhpDefect\PhpDefectClassReflectionExtension;
 use PHPStan\Type\FileTypeMapper;
-use PHPStan\Type\Php\AllArgumentBasedFunctionReturnTypeExtension;
-use PHPStan\Type\Php\ArgumentBasedArrayFunctionReturnTypeExtension;
-use PHPStan\Type\Php\ArgumentBasedFunctionReturnTypeExtension;
-use PHPStan\Type\Php\ArrayFilterFunctionReturnTypeReturnTypeExtension;
-use PHPStan\Type\Php\CallbackBasedArrayFunctionReturnTypeExtension;
-use PHPStan\Type\Php\CallbackBasedFunctionReturnTypeExtension;
 use PHPStan\Type\Type;
 
 abstract class TestCase extends \PHPUnit\Framework\TestCase
@@ -143,9 +138,9 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 				\ReflectionFunction $function,
 				array $phpDocParameterTypes,
 				Type $phpDocReturnType = null
-			): FunctionReflection
+			): PhpFunctionReflection
 			{
-				return new FunctionReflection(
+				return new PhpFunctionReflection(
 					$function,
 					$this->parser,
 					$this->functionCallStatementFinder,
@@ -155,6 +150,13 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 				);
 			}
 		};
+
+		$tagToService = function (array $tags) {
+			return array_map(function (string $serviceName) {
+				return $this->getContainer()->getService($serviceName);
+			}, array_keys($tags));
+		};
+
 		$broker = new Broker(
 			[
 				$phpExtension,
@@ -165,14 +167,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 			[$phpExtension],
 			$dynamicMethodReturnTypeExtensions,
 			$dynamicStaticMethodReturnTypeExtensions,
-			[
-				new AllArgumentBasedFunctionReturnTypeExtension(),
-				new ArgumentBasedArrayFunctionReturnTypeExtension(),
-				new ArgumentBasedFunctionReturnTypeExtension(),
-				new ArrayFilterFunctionReturnTypeReturnTypeExtension(),
-				new CallbackBasedArrayFunctionReturnTypeExtension(),
-				new CallbackBasedFunctionReturnTypeExtension(),
-			],
+			$tagToService($this->getContainer()->findByTag(BrokerFactory::DYNAMIC_FUNCTION_RETURN_TYPE_EXTENSION_TAG)),
 			$functionReflectionFactory,
 			new FileTypeMapper($this->getParser(), $phpDocStringResolver, $cache)
 		);

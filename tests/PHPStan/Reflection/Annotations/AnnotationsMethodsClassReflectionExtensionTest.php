@@ -123,8 +123,8 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 			],
 			'methodWithNoReturnTypeStatically' => [
 				'class' => \AnnotationsMethods\Foo::class,
-				'returnType' => 'mixed',
-				'isStatic' => true,
+				'returnType' => 'static(AnnotationsMethods\Foo)',
+				'isStatic' => false,
 				'isVariadic' => false,
 				'parameters' => [],
 			],
@@ -239,8 +239,8 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 			],
 			'methodWithNoReturnTypeStaticallyWithDescription' => [
 				'class' => \AnnotationsMethods\Foo::class,
-				'returnType' => 'mixed',
-				'isStatic' => true,
+				'returnType' => 'static(AnnotationsMethods\Foo)',
+				'isStatic' => false,
 				'isVariadic' => false,
 				'parameters' => [],
 			],
@@ -309,8 +309,8 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 			],
 			'methodWithNoReturnTypeStaticallyNoParams' => [
 				'class' => \AnnotationsMethods\Foo::class,
-				'returnType' => 'mixed',
-				'isStatic' => true,
+				'returnType' => 'static(AnnotationsMethods\Foo)',
+				'isStatic' => false,
 				'isVariadic' => false,
 				'parameters' => [],
 			],
@@ -952,7 +952,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 	 * @param string $className
 	 * @param mixed[] $methods
 	 */
-	public function testMethods(string $className, array $methods)
+	public function testMethods(string $className, array $methods): void
 	{
 		/** @var Broker $broker */
 		$broker = $this->getContainer()->getByType(Broker::class);
@@ -970,17 +970,17 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 				$method->getDeclaringClass()->getName(),
 				sprintf('Declaring class of method %s() does not match.', $methodName)
 			);
-			$this->assertEquals(
+			$this->assertSame(
 				$expectedMethodData['returnType'],
 				$method->getReturnType()->describe(),
 				sprintf('Return type of method %s::%s() does not match', $className, $methodName)
 			);
-			$this->assertEquals(
+			$this->assertSame(
 				$expectedMethodData['isStatic'],
 				$method->isStatic(),
 				sprintf('Scope of method %s::%s() does not match', $className, $methodName)
 			);
-			$this->assertEquals(
+			$this->assertSame(
 				$expectedMethodData['isVariadic'],
 				$method->isVariadic(),
 				sprintf('Method %s::%s() does not match expected variadicity', $className, $methodName)
@@ -991,23 +991,23 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 				sprintf('Method %s::%s() does not match expected count of parameters', $className, $methodName)
 			);
 			foreach ($method->getParameters() as $i => $parameter) {
-				$this->assertEquals(
+				$this->assertSame(
 					$expectedMethodData['parameters'][$i]['name'],
 					$parameter->getName()
 				);
-				$this->assertEquals(
+				$this->assertSame(
 					$expectedMethodData['parameters'][$i]['type'],
 					$parameter->getType()->describe()
 				);
-				$this->assertEquals(
+				$this->assertSame(
 					$expectedMethodData['parameters'][$i]['isPassedByReference'],
 					$parameter->isPassedByReference()
 				);
-				$this->assertEquals(
+				$this->assertSame(
 					$expectedMethodData['parameters'][$i]['isOptional'],
 					$parameter->isOptional()
 				);
-				$this->assertEquals(
+				$this->assertSame(
 					$expectedMethodData['parameters'][$i]['isVariadic'],
 					$parameter->isVariadic()
 				);
@@ -1015,7 +1015,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 		}
 	}
 
-	public function testOverridingNativeMethodsWithAnnotationsDoesNotBreakGetNativeMethod()
+	public function testOverridingNativeMethodsWithAnnotationsDoesNotBreakGetNativeMethod(): void
 	{
 		$broker = $this->getContainer()->getByType(Broker::class);
 		$class = $broker->getClass(\AnnotationsMethods\Bar::class);

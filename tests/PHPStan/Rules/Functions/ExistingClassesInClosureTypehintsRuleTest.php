@@ -14,7 +14,7 @@ class ExistingClassesInClosureTypehintsRuleTest extends \PHPStan\Testing\RuleTes
 		return new ExistingClassesInClosureTypehintsRule(new FunctionDefinitionCheck($broker, new ClassCaseSensitivityCheck($broker), true, false));
 	}
 
-	public function testExistingClassInTypehint()
+	public function testExistingClassInTypehint(): void
 	{
 		$this->analyse([__DIR__ . '/data/closure-typehints.php'], [
 			[
@@ -24,10 +24,6 @@ class ExistingClassesInClosureTypehintsRuleTest extends \PHPStan\Testing\RuleTes
 			[
 				'Parameter $bar of anonymous function has invalid typehint type TestClosureFunctionTypehints\BarFunctionTypehints.',
 				15,
-			],
-			[
-				'Return typehint of anonymous function has invalid type parent.',
-				25,
 			],
 			[
 				'Class TestClosureFunctionTypehints\FooFunctionTypehints referenced with incorrect case: TestClosureFunctionTypehints\fOOfUnctionTypehints.',
@@ -40,10 +36,7 @@ class ExistingClassesInClosureTypehintsRuleTest extends \PHPStan\Testing\RuleTes
 		]);
 	}
 
-	/**
-	 * @requires PHP 7.1
-	 */
-	public function testValidTypehint()
+	public function testValidTypehintPhp71(): void
 	{
 		$this->analyse([__DIR__ . '/data/closure-7.1-typehints.php'], [
 			[
@@ -55,6 +48,14 @@ class ExistingClassesInClosureTypehintsRuleTest extends \PHPStan\Testing\RuleTes
 				35,
 			],
 		]);
+	}
+
+	/**
+	 * @requires PHP 7.2
+	 */
+	public function testValidTypehintPhp72(): void
+	{
+		$this->analyse([__DIR__ . '/data/closure-7.2-typehints.php'], []);
 	}
 
 }

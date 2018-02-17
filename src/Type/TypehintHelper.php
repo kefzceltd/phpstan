@@ -7,7 +7,7 @@ use PHPStan\Broker\Broker;
 class TypehintHelper
 {
 
-	private static function getTypeObjectFromTypehint(string $typeString, string $selfClass = null): Type
+	private static function getTypeObjectFromTypehint(string $typeString, ?string $selfClass): Type
 	{
 		switch (strtolower($typeString)) {
 			case 'int':
@@ -21,7 +21,7 @@ class TypehintHelper
 			case 'array':
 				return new ArrayType(new MixedType(), new MixedType());
 			case 'iterable':
-				return new IterableIterableType(new MixedType(), new MixedType());
+				return new IterableType(new MixedType(), new MixedType());
 			case 'callable':
 				return new CallableType();
 			case 'void':
@@ -76,17 +76,17 @@ class TypehintHelper
 		Type $phpDocType = null
 	): Type
 	{
-		if ($phpDocType !== null) {
+		if ($phpDocType !== null && !$phpDocType instanceof ErrorType) {
 			if ($type instanceof VoidType || $phpDocType instanceof VoidType) {
 				return new VoidType();
 			}
 
-			if (TypeCombinator::removeNull($type) instanceof IterableIterableType) {
+			if (TypeCombinator::removeNull($type) instanceof IterableType) {
 				if ($phpDocType instanceof UnionType) {
 					$innerTypes = [];
 					foreach ($phpDocType->getTypes() as $innerType) {
 						if ($innerType instanceof ArrayType) {
-							$innerTypes[] = new IterableIterableType(
+							$innerTypes[] = new IterableType(
 								$innerType->getIterableKeyType(),
 								$innerType->getIterableValueType()
 							);
@@ -96,7 +96,7 @@ class TypehintHelper
 					}
 					$phpDocType = new UnionType($innerTypes);
 				} elseif ($phpDocType instanceof ArrayType) {
-					$phpDocType = new IterableIterableType(
+					$phpDocType = new IterableType(
 						$phpDocType->getIterableKeyType(),
 						$phpDocType->getIterableValueType()
 					);

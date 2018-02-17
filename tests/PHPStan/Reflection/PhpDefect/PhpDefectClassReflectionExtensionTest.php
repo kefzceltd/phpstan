@@ -33,7 +33,7 @@ class PhpDefectClassReflectionExtensionTest extends \PHPStan\Testing\TestCase
 	 * @param string $declaringClassName
 	 * @param array  $data
 	 */
-	public function testProperties(string $className, string $declaringClassName, array $data)
+	public function testProperties(string $className, string $declaringClassName, array $data): void
 	{
 		$scope = $this->createMock(Scope::class);
 		$scope->method('isInClass')->willReturn(false);
@@ -593,15 +593,13 @@ class PhpDefectClassReflectionExtensionTest extends \PHPStan\Testing\TestCase
 	}
 
 	/**
-	 * @requires PHP 7.1
-	 *
 	 * @dataProvider dataDateInterval71Properties
 	 *
 	 * @param string $className
 	 * @param string $declaringClassName
 	 * @param array $data
 	 */
-	public function test71Properties(string $className, string $declaringClassName, array $data)
+	public function test71Properties(string $className, string $declaringClassName, array $data): void
 	{
 		$this->testProperties($className, $declaringClassName, $data);
 	}

@@ -139,12 +139,7 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 		return $name;
 	}
 
-	/**
-	 * @param string $lowercaseMethodName
-	 * @param string $traitTarget
-	 * @return string|null
-	 */
-	private function getMethodNameWithCorrectCase(string $lowercaseMethodName, string $traitTarget)
+	private function getMethodNameWithCorrectCase(string $lowercaseMethodName, string $traitTarget): ?string
 	{
 		list ($trait, $method) = explode('::', $traitTarget);
 		$traitReflection = $this->broker->getClass($trait)->getNativeReflection();
@@ -174,24 +169,6 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 					isset($this->phpDocParameterTypes[$reflection->getName()]) ? $this->phpDocParameterTypes[$reflection->getName()] : null
 				);
 			}, $this->reflection->getParameters());
-
-			if (
-				$this->reflection->getName() === '__construct'
-				&& $this->declaringClass->getName() === 'ArrayObject'
-				&& count($this->parameters) === 1
-			) {
-				// PHP bug #71077
-				$this->parameters[] = new DummyParameter(
-					'flags',
-					new IntegerType(),
-					true
-				);
-				$this->parameters[] = new DummyParameter(
-					'iterator_class',
-					new StringType(),
-					true
-				);
-			}
 
 			if (
 				$this->declaringClass->getName() === 'ReflectionMethod'

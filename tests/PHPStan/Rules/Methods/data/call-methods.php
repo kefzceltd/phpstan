@@ -552,3 +552,67 @@ class IncompatiblePhpDocNullableTypeIssue
 	}
 
 }
+
+class TernaryEvaluation
+{
+
+
+	/**
+	 * @param Foo|false $fooOrFalse
+	 */
+	public function doFoo($fooOrFalse)
+	{
+		$fooOrFalse ?: $this->doBar($fooOrFalse);
+		$fooOrFalse ?
+			$this->doBar($fooOrFalse)
+			: $this->doBar($fooOrFalse);
+	}
+
+	public function doBar(int $i)
+	{
+
+	}
+
+}
+
+class ForeachSituation
+{
+
+	public function takesInt(int $s = null)
+	{
+
+	}
+
+	/**
+	 * @param string[] $letters
+	 */
+	public function takesStringArray(array $letters)
+	{
+		$letter = null;
+		foreach ($letters as $letter) {
+
+		}
+		$this->takesInt($letter);
+	}
+
+}
+
+class LogicalAndSupport
+{
+
+	public function doFoo()
+	{
+		if (($object = $this->findObject()) and $object instanceof self) {
+			return $object->doFoo();
+		}
+	}
+
+	/**
+	 * @return object|null
+	 */
+	public function findObject()
+	{
+
+	}
+
+}

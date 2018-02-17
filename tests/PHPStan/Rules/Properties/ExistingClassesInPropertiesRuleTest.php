@@ -18,7 +18,7 @@ class ExistingClassesInPropertiesRuleTest extends \PHPStan\Testing\RuleTestCase
 		);
 	}
 
-	public function testNonexistentClass()
+	public function testNonexistentClass(): void
 	{
 		$this->analyse(
 			[
@@ -52,6 +52,10 @@ class ExistingClassesInPropertiesRuleTest extends \PHPStan\Testing\RuleTestCase
 				[
 					'Class PropertiesTypes\Foo referenced with incorrect case: PropertiesTypes\FOO.',
 					24,
+				],
+				[
+					'Property PropertiesTypes\Foo::$withTrait has invalid type PropertiesTypes\SomeTrait.',
+					27,
 				],
 			]
 		);

@@ -19,7 +19,7 @@ class UnionType implements CompoundType, StaticResolvableType
 	 */
 	public function __construct(array $types)
 	{
-		$throwException = function () use ($types) {
+		$throwException = function () use ($types): void {
 			throw new \PHPStan\ShouldNotHappenException(sprintf(
 				'Cannot create %s with: %s',
 				self::class,
@@ -76,7 +76,7 @@ class UnionType implements CompoundType, StaticResolvableType
 
 	public function isSuperTypeOf(Type $otherType): TrinaryLogic
 	{
-		if ($otherType instanceof self || $otherType instanceof IterableIterableType) {
+		if ($otherType instanceof self || $otherType instanceof IterableType) {
 			return $otherType->isSubTypeOf($this);
 		}
 
@@ -113,15 +113,11 @@ class UnionType implements CompoundType, StaticResolvableType
 		return implode('|', $typeNames);
 	}
 
-	public function canAccessProperties(): bool
+	public function canAccessProperties(): TrinaryLogic
 	{
-		foreach ($this->types as $type) {
-			if (!$type->canAccessProperties()) {
-				return false;
-			}
-		}
-
-		return true;
+		return $this->unionResults(function (Type $type): TrinaryLogic {
+			return $type->canAccessProperties();
+		});
 	}
 
 	public function hasProperty(string $propertyName): bool
@@ -150,15 +146,11 @@ class UnionType implements CompoundType, StaticResolvableType
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
-		foreach ($this->types as $type) {
-			if (!$type->canCallMethods()) {
-				return false;
-			}
-		}
-
-		return true;
+		return $this->unionResults(function (Type $type): TrinaryLogic {
+			return $type->canCallMethods();
+		});
 	}
 
 	public function hasMethod(string $methodName): bool
@@ -187,15 +179,11 @@ class UnionType implements CompoundType, StaticResolvableType
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
-		foreach ($this->types as $type) {
-			if (!$type->canAccessConstants()) {
-				return false;
-			}
-		}
-
-		return true;
+		return $this->unionResults(function (Type $type): TrinaryLogic {
+			return $type->canAccessConstants();
+		});
 	}
 
 	public function hasConstant(string $constantName): bool
@@ -222,11 +210,6 @@ class UnionType implements CompoundType, StaticResolvableType
 		}
 
 		throw new \PHPStan\ShouldNotHappenException();
-	}
-
-	public function isDocumentableNatively(): bool
-	{
-		return false;
 	}
 
 	public function resolveStatic(string $className): Type
@@ -260,6 +243,20 @@ class UnionType implements CompoundType, StaticResolvableType
 		});
 	}
 
+	public function isOffsetAccessible(): TrinaryLogic
+	{
+		return $this->unionResults(function (Type $type): TrinaryLogic {
+			return $type->isOffsetAccessible();
+		});
+	}
+
+	public function getOffsetValueType(): Type
+	{
+		return $this->unionTypes(function (Type $type): Type {
+			return $type->getOffsetValueType();
+		});
+	}
+
 	public function isCallable(): TrinaryLogic
 	{
 		return $this->unionResults(function (Type $type): TrinaryLogic {
@@ -267,15 +264,11 @@ class UnionType implements CompoundType, StaticResolvableType
 		});
 	}
 
-	public function isClonable(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		foreach ($this->types as $type) {
-			if (!$type->isClonable()) {
-				return false;
-			}
-		}
-
-		return true;
+		return $this->unionResults(function (Type $type): TrinaryLogic {
+			return $type->isCloneable();
+		});
 	}
 
 	public static function __set_state(array $properties): Type

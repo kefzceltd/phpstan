@@ -13,7 +13,7 @@ class ReturnTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 		return new ReturnTypeRule(new FunctionReturnTypeCheck(new \PhpParser\PrettyPrinter\Standard(), new RuleLevelHelper($this->createBroker(), true, false, true)));
 	}
 
-	public function testReturnTypeRule()
+	public function testReturnTypeRule(): void
 	{
 		$this->analyse([__DIR__ . '/data/returnTypes.php'], [
 			[
@@ -176,25 +176,14 @@ class ReturnTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 				'Method ReturnTypes\ReturningSomethingFromConstructor::__construct() with return type void returns ReturnTypes\Foo but should not return anything.',
 				388,
 			],
-		]);
-	}
-
-	public function testReturnTypeRulePhp70()
-	{
-		if (PHP_VERSION_ID >= 70100) {
-			$this->markTestSkipped(
-				'Test can be run only on PHP 7.0 - higher versions fail with the following test in the parse phase.'
-			);
-		}
-		$this->analyse([__DIR__ . '/data/returnTypes-7.0.php'], [
 			[
-				'Method ReturnTypes\FooPhp70::returnInteger() should return int but empty return statement found.',
-				10,
+				'Method ReturnTypes\ReturnTernary::returnTernary() should return ReturnTypes\Foo but returns false.',
+				454,
 			],
 		]);
 	}
 
-	public function testMisleadingTypehintsInClassWithoutNamespace()
+	public function testMisleadingTypehintsInClassWithoutNamespace(): void
 	{
 		$this->analyse([__DIR__ . '/data/misleadingTypehints.php'], [
 			[
@@ -224,7 +213,7 @@ class ReturnTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testOverridenTypeFromIfConditionShouldNotBeMixedAfterBranch()
+	public function testOverridenTypeFromIfConditionShouldNotBeMixedAfterBranch(): void
 	{
 		$this->analyse([__DIR__ . '/data/returnTypes-overridenTypeInIfCondition.php'], [
 			[
@@ -234,15 +223,12 @@ class ReturnTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 		]);
 	}
 
-	public function testReturnStaticFromParent()
+	public function testReturnStaticFromParent(): void
 	{
 		$this->analyse([__DIR__ . '/data/return-static-from-parent.php'], []);
 	}
 
-	/**
-	 * @requires PHP 7.1
-	 */
-	public function testReturnIterable()
+	public function testReturnIterable(): void
 	{
 		$this->analyse([__DIR__ . '/data/returnTypes-iterable.php'], [
 			[

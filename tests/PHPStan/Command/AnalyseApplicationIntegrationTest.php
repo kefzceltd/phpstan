@@ -10,7 +10,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 class AnalyseApplicationIntegrationTest extends \PHPStan\Testing\TestCase
 {
 
-	public function testExecuteOnADirectoryWithoutFiles()
+	public function testExecuteOnADirectoryWithoutFiles(): void
 	{
 		$path = __DIR__ . '/test';
 		@mkdir($path);
@@ -21,13 +21,13 @@ class AnalyseApplicationIntegrationTest extends \PHPStan\Testing\TestCase
 		$this->assertContains('No errors', $output);
 	}
 
-	public function testExecuteOnAFile()
+	public function testExecuteOnAFile(): void
 	{
 		$output = $this->runPath(__DIR__ . '/data/file-without-errors.php', 0);
 		$this->assertContains('No errors', $output);
 	}
 
-	public function testExecuteOnANonExistentPath()
+	public function testExecuteOnANonExistentPath(): void
 	{
 		$path = __DIR__ . '/foo';
 		$output = $this->runPath($path, 1);
@@ -37,7 +37,7 @@ class AnalyseApplicationIntegrationTest extends \PHPStan\Testing\TestCase
 		), $output);
 	}
 
-	public function testExecuteOnAFileWithErrors()
+	public function testExecuteOnAFileWithErrors(): void
 	{
 		$path = __DIR__ . '/../Rules/Functions/data/nonexistent-function.php';
 		$output = $this->runPath($path, 1);
@@ -47,7 +47,11 @@ class AnalyseApplicationIntegrationTest extends \PHPStan\Testing\TestCase
 	private function runPath(string $path, int $expectedStatusCode): string
 	{
 		$analyserApplication = $this->getContainer()->getByType(AnalyseApplication::class);
-		$output = new StreamOutput(fopen('php://memory', 'w', false));
+		$resource = fopen('php://memory', 'w', false);
+		if ($resource === false) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+		$output = new StreamOutput($resource);
 
 		$style = new SymfonyStyle(
 			$this->createMock(InputInterface::class),

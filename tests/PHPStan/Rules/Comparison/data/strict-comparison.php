@@ -174,3 +174,102 @@ class Foo
 	}
 
 }
+
+class Node
+{
+
+	/** @var self|null */
+	private $next;
+
+	/** @var int */
+	private $id;
+
+	public function iterate(): void
+	{
+		for ($node = $this; $node !== null; $node = $node->next) {
+			// ...
+		}
+	}
+
+	public function checkCycle()
+	{
+		if ($this->next !== null) {
+			$iter = $this->next;
+			while ($iter !== null) {
+				if ($iter->id === $this->id) {
+					throw new \Exception('Cycle detected.');
+				}
+
+				$iter = $iter->next;
+			}
+		}
+	}
+
+	public function checkAnotherCycle()
+	{
+		if ($this->next !== null) {
+			$iter = $this->next;
+			while ($iter !== false) {
+				if ($iter->id === $this->id) {
+					throw new \Exception('Cycle detected.');
+				}
+
+				$iter = $iter->next;
+			}
+		}
+	}
+
+	public function finallyNullability()
+	{
+		$result = null;
+		try {
+			if (doFoo()) {
+				throw new \Exception();
+			}
+			$result = '1';
+		} finally {
+			if ($result !== null) {
+
+			}
+		}
+	}
+
+	public function checkForCycle()
+	{
+		if ($this->next !== null) {
+			$iter = $this->next;
+			for (;$iter !== null;) {
+				if ($iter->id === $this->id) {
+					throw new \Exception('Cycle detected.');
+				}
+
+				$iter = $iter->next;
+			}
+		}
+	}
+
+	public function checkAnotherForCycle()
+	{
+		if ($this->next !== null) {
+			$iter = $this->next;
+			for (;$iter !== false;) {
+				if ($iter->id === $this->id) {
+					throw new \Exception('Cycle detected.');
+				}
+
+				$iter = $iter->next;
+			}
+		}
+	}
+
+	public function looseNullCheck(?\stdClass $foo)
+	{
+		if ($foo == null) {
+			return;
+		}
+
+		if ($foo !== null) {
+
+		}
+	}
+}

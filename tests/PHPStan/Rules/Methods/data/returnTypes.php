@@ -434,3 +434,34 @@ class GeneratorMethod
 	}
 
 }
+
+class ReturnTernary
+{
+
+	/**
+	 * @param Foo|false $fooOrFalse
+	 * @return Foo
+	 */
+	public function returnTernary($fooOrFalse): Foo
+	{
+		return $fooOrFalse ?: new Foo();
+		return $fooOrFalse !== false ? $fooOrFalse : new Foo();
+
+		$fooOrFalse ? ($fooResult = $fooOrFalse) : new Foo();
+		return $fooResult;
+
+		$fooOrFalse ? false : ($falseResult = $fooOrFalse);
+		return $falseResult;
+	}
+
+	/**
+	 * @return static|null
+	 */
+	public function returnStatic()
+	{
+		$out = doFoo();
+
+		return is_a($out, static::class, false) ? $out : null;
+	}
+
+}

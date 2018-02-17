@@ -2,11 +2,10 @@
 
 namespace PHPStan\Command;
 
-use Nette\DI\Config\Loader;
 use Nette\DI\Helpers;
-use PhpParser\Node\Stmt\Catch_;
 use PHPStan\Command\ErrorFormatter\ErrorFormatter;
 use PHPStan\DependencyInjection\ContainerFactory;
+use PHPStan\DependencyInjection\LoaderFactory;
 use PHPStan\File\FileHelper;
 use PHPStan\Type\TypeCombinator;
 use Symfony\Component\Console\Input\InputArgument;
@@ -18,18 +17,18 @@ use Symfony\Component\Console\Style\StyleInterface;
 class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 {
 
-	const NAME = 'analyse';
+	private const NAME = 'analyse';
 
-	const OPTION_LEVEL = 'level';
+	public const OPTION_LEVEL = 'level';
 
-	const DEFAULT_LEVEL = 0;
+	public const DEFAULT_LEVEL = 0;
 
-	protected function configure()
+	protected function configure(): void
 	{
 		$this->setName(self::NAME)
 			->setDescription('Analyses source code')
 			->setDefinition([
-				new InputArgument('paths', InputArgument::REQUIRED | InputArgument::IS_ARRAY, 'Paths with source code to run analysis on'),
+				new InputArgument('paths', InputArgument::OPTIONAL | InputArgument::IS_ARRAY, 'Paths with source code to run analysis on'),
 				new InputOption('configuration', 'c', InputOption::VALUE_REQUIRED, 'Path to project configuration file'),
 				new InputOption(self::OPTION_LEVEL, 'l', InputOption::VALUE_REQUIRED, 'Level of rule options - the higher the stricter'),
 				new InputOption(ErrorsConsoleStyle::OPTION_NO_PROGRESS, null, InputOption::VALUE_NONE, 'Do not show progress bar, only results'),
@@ -52,7 +51,8 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 
 		$memoryLimit = $input->getOption('memory-limit');
 		if ($memoryLimit !== null) {
-			if (!preg_match('#^-?\d+[kMG]?$#i', $memoryLimit)) {
+
+			if (\Nette\Utils\Strings::match($memoryLimit, '#^-?\d+[kMG]?$#i') === null) {
 				$consoleStyle->error(sprintf('Invalid memory limit format "%s".', $memoryLimit));
 				return 1;
 			}
@@ -63,6 +63,9 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 		}
 
 		$currentWorkingDirectory = getcwd();
+		if ($currentWorkingDirectory === false) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
 		$fileHelper = new FileHelper($currentWorkingDirectory);
 
 		$autoloadFile = $input->getOption('autoload-file');
@@ -73,7 +76,19 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 			}
 		}
 
+		$paths = $input->getArgument('paths');
 		$projectConfigFile = $input->getOption('configuration');
+		if ($projectConfigFile === null) {
+			foreach (['phpstan.neon', 'phpstan.neon.dist'] as $discoverableConfigName) {
+				$discoverableConfigFile = $currentWorkingDirectory . DIRECTORY_SEPARATOR . $discoverableConfigName;
+				if (is_file($discoverableConfigFile)) {
+					$projectConfigFile = $discoverableConfigFile;
+					$output->writeln(sprintf('Note: Using configuration file %s.', $projectConfigFile));
+					break;
+				}
+			}
+		}
+
 		$levelOption = $input->getOption(self::OPTION_LEVEL);
 		$defaultLevelUsed = false;
 		if ($projectConfigFile === null && $levelOption === null) {
@@ -82,6 +97,30 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 		}
 
 		$containerFactory = new ContainerFactory($currentWorkingDirectory);
+
+		if ($projectConfigFile !== null) {
+			if (!is_file($projectConfigFile)) {
+				$output->writeln(sprintf('Project config file at path %s does not exist.', $projectConfigFile));
+				return 1;
+			}
+
+			$loader = (new LoaderFactory())->createLoader();
+			$projectConfig = $loader->load($projectConfigFile, null);
+			$defaultParameters = [
+				'rootDir' => $containerFactory->getRootDirectory(),
+				'currentWorkingDirectory' => $containerFactory->getCurrentWorkingDirectory(),
+			];
+
+			if (isset($projectConfig['parameters']['tmpDir'])) {
+				$tmpDir = Helpers::expand($projectConfig['parameters']['tmpDir'], $defaultParameters);
+			}
+			if ($levelOption === null && isset($projectConfig['parameters']['level'])) {
+				$levelOption = $projectConfig['parameters']['level'];
+			}
+			if (count($paths) === 0 && isset($projectConfig['parameters']['paths'])) {
+				$paths = Helpers::expand($projectConfig['parameters']['paths'], $defaultParameters);
+			}
+		}
 
 		$additionalConfigFiles = [];
 		if ($levelOption !== null) {
@@ -95,21 +134,7 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 		}
 
 		if ($projectConfigFile !== null) {
-			if (!is_file($projectConfigFile)) {
-				$output->writeln(sprintf('Project config file at path %s does not exist.', $projectConfigFile));
-				return 1;
-			}
-
 			$additionalConfigFiles[] = $projectConfigFile;
-
-			$loader = new Loader();
-			$projectConfig = $loader->load($projectConfigFile, null);
-			if (isset($projectConfig['parameters']['tmpDir'])) {
-				$tmpDir = Helpers::expand($projectConfig['parameters']['tmpDir'], [
-					'rootDir' => $containerFactory->getRootDirectory(),
-					'currentWorkingDirectory' => $containerFactory->getCurrentWorkingDirectory(),
-				]);
-			}
 		}
 
 		if (!isset($tmpDir)) {
@@ -123,16 +148,15 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 		$container = $containerFactory->create($tmpDir, $additionalConfigFiles);
 		$memoryLimitFile = $container->parameters['memoryLimitFile'];
 		if (file_exists($memoryLimitFile)) {
+			$memoryLimitFileContents = file_get_contents($memoryLimitFile);
+			if ($memoryLimitFileContents === false) {
+				throw new \PHPStan\ShouldNotHappenException();
+			}
 			$consoleStyle->note(sprintf(
 				"PHPStan crashed in the previous run probably because of excessive memory consumption.\nIt consumed around %s of memory.\n\nTo avoid this issue, allow to use more memory with the --memory-limit option.",
-				file_get_contents($memoryLimitFile)
+				$memoryLimitFileContents
 			));
 			unlink($memoryLimitFile);
-		}
-		if (PHP_VERSION_ID >= 70100 && !property_exists(Catch_::class, 'types')) {
-			$consoleStyle->note(
-				'You\'re running PHP >= 7.1, but you still have PHP-Parser version 2.x. This will lead to parse errors in case you use PHP 7.1 syntax like nullable parameters, iterable and void typehints, union exception types, or class constant visibility. Update to PHP-Parser 3.x to dismiss this message.'
-			);
 		}
 		$errorFormat = $input->getOption('errorFormat');
 		$errorFormatterServiceName = sprintf('errorFormatter.%s', $errorFormat);
@@ -189,7 +213,7 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 		$application = $container->getByType(AnalyseApplication::class);
 		return $this->handleReturn(
 			$application->analyse(
-				$input->getArgument('paths'),
+				$paths,
 				$consoleStyle,
 				$errorFormatter,
 				$defaultLevelUsed,
@@ -205,10 +229,10 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 		return $code;
 	}
 
-	private function setUpSignalHandler(StyleInterface $consoleStyle, string $memoryLimitFile)
+	private function setUpSignalHandler(StyleInterface $consoleStyle, string $memoryLimitFile): void
 	{
 		if (function_exists('pcntl_signal')) {
-			pcntl_signal(SIGINT, function () use ($consoleStyle, $memoryLimitFile) {
+			pcntl_signal(SIGINT, function () use ($consoleStyle, $memoryLimitFile): void {
 				if (file_exists($memoryLimitFile)) {
 					unlink($memoryLimitFile);
 				}

@@ -5,7 +5,6 @@
 		<exclude name="Consistence.Exceptions.ExceptionDeclaration"/>
 	</rule>
 	<rule ref="vendor/slevomat/coding-standard/SlevomatCodingStandard/ruleset.xml">
-		<exclude name="SlevomatCodingStandard.Classes.ClassConstantVisibility.MissingConstantVisibility"/>
 		<exclude name="SlevomatCodingStandard.Files.TypeNameMatchesFileName"/>
 		<exclude name="SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameAfterKeyword"/>
 		<exclude name="SlevomatCodingStandard.Namespaces.UseOnlyWhitelistedNamespaces"/>
@@ -20,6 +19,9 @@
 	</rule>
 	<rule ref="Squiz.PHP.InnerFunctions.NotAllowed">
 		<exclude-pattern>tests/TestCase.php</exclude-pattern>
+		<exclude-pattern>tests/PHPStan/Analyser/NodeScopeResolverTest.php</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Operators.ValidLogicalOperators.NotAllowed">
 		<exclude-pattern>tests/PHPStan/Analyser/NodeScopeResolverTest.php</exclude-pattern>
 	</rule>
 	<rule ref="SlevomatCodingStandard.Namespaces.AlphabeticallySortedUses">
@@ -38,8 +40,6 @@
 				@dataProvider,
 				@requires
 			"/>
-			<property name="enableNullableTypeHints" type="false" />
-			<property name="enableVoidTypeHint" type="false" />
 		</properties>
 	</rule>
 	<rule ref="Generic.Strings.UnnecessaryStringConcat.Found">

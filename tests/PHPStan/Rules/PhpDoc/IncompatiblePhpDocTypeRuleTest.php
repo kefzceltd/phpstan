@@ -14,7 +14,7 @@ class IncompatiblePhpDocTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 		);
 	}
 
-	public function testRule()
+	public function testRule(): void
 	{
 		$this->analyse([__DIR__ . '/data/incompatible-types.php'], [
 			[
@@ -44,6 +44,18 @@ class IncompatiblePhpDocTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 			[
 				'PHPDoc tag @param for parameter $numbers with type array<int, string> is incompatible with native type array<int, int>',
 				99,
+			],
+			[
+				'PHPDoc tag @param for parameter $arr contains unresolvable type',
+				117,
+			],
+			[
+				'PHPDoc tag @param references unknown parameter $arrX',
+				117,
+			],
+			[
+				'PHPDoc tag @return contains unresolvable type',
+				117,
 			],
 		]);
 	}

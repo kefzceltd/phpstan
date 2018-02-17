@@ -9,7 +9,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 class ErrorsConsoleStyle extends \Symfony\Component\Console\Style\SymfonyStyle
 {
 
-	const OPTION_NO_PROGRESS = 'no-progress';
+	public const OPTION_NO_PROGRESS = 'no-progress';
 
 	/** @var bool */
 	private $showProgress;
@@ -27,7 +27,7 @@ class ErrorsConsoleStyle extends \Symfony\Component\Console\Style\SymfonyStyle
 		$this->output = $output;
 	}
 
-	public function table(array $headers, array $rows)
+	public function table(array $headers, array $rows): void
 	{
 		$terminalWidth = (new \Symfony\Component\Console\Terminal())->getWidth();
 		$maxHeaderWidth = strlen($headers[0]);
@@ -72,7 +72,7 @@ class ErrorsConsoleStyle extends \Symfony\Component\Console\Style\SymfonyStyle
 	 * @phpcsSuppress SlevomatCodingStandard.TypeHints.TypeHintDeclaration.MissingParameterTypeHint
 	 * @param int $max
 	 */
-	public function progressStart($max = 0)
+	public function progressStart($max = 0): void
 	{
 		if (!$this->showProgress) {
 			return;
@@ -84,7 +84,7 @@ class ErrorsConsoleStyle extends \Symfony\Component\Console\Style\SymfonyStyle
 	 * @phpcsSuppress SlevomatCodingStandard.TypeHints.TypeHintDeclaration.MissingParameterTypeHint
 	 * @param int $step
 	 */
-	public function progressAdvance($step = 1)
+	public function progressAdvance($step = 1): void
 	{
 		if (!$this->showProgress) {
 			return;
@@ -92,7 +92,7 @@ class ErrorsConsoleStyle extends \Symfony\Component\Console\Style\SymfonyStyle
 		if ($this->output->isDecorated() && $step > 0) {
 			$stepTime = (time() - $this->progressBar->getStartTime()) / $step;
 			if ($stepTime > 0 && $stepTime < 1) {
-				$this->progressBar->setRedrawFrequency(1 / $stepTime);
+				$this->progressBar->setRedrawFrequency((int) (1 / $stepTime));
 			} else {
 				$this->progressBar->setRedrawFrequency(1);
 			}
@@ -101,7 +101,7 @@ class ErrorsConsoleStyle extends \Symfony\Component\Console\Style\SymfonyStyle
 		$this->progressBar->setProgress($this->progressBar->getProgress() + $step);
 	}
 
-	public function progressFinish()
+	public function progressFinish(): void
 	{
 		if (!$this->showProgress) {
 			return;

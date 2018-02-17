@@ -36,18 +36,16 @@ class FunctionReturnTypeCheck
 	 * @param string $voidMessage
 	 * @param string $typeMismatchMessage
 	 * @param bool $isGenerator
-	 * @param bool $isAnonymousFunction
 	 * @return string[]
 	 */
 	public function checkReturnType(
 		Scope $scope,
 		Type $returnType,
-		Expr $returnValue = null,
+		?Expr $returnValue,
 		string $emptyReturnStatementMessage,
 		string $voidMessage,
 		string $typeMismatchMessage,
-		bool $isGenerator,
-		bool $isAnonymousFunction = false
+		bool $isGenerator
 	): array
 	{
 		if ($isGenerator) {
@@ -103,7 +101,7 @@ class FunctionReturnTypeCheck
 			];
 		}
 
-		if (!$this->ruleLevelHelper->accepts($returnType, $returnValueType) && (!$isAnonymousFunction || $returnValueType->isDocumentableNatively())) {
+		if (!$this->ruleLevelHelper->accepts($returnType, $returnValueType)) {
 			return [
 				sprintf(
 					$typeMismatchMessage,

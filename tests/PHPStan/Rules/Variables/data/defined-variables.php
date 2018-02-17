@@ -156,9 +156,9 @@ echo $variableInEmpty; // exists here
 echo $negatedVariableInEmpty; // does not exist here
 
 if (isset($variableInIsset) && isset($anotherVariableInIsset['foo'])) {
-	echo $variableInIsset;
+	echo $variableInIsset && $anotherVariableInIsset;
 } else {
-	echo $variableInIsset; // does not exist
+	echo $variableInIsset && $anotherVariableInIsset; // does not exist
 }
 
 switch ('foo') {
@@ -326,3 +326,41 @@ for ($forLoopVariableInit = 0; $forLoopVariableInit < 5; $forLoopVariableInit = 
 	$forLoopVariable = 2;
 }
 echo $anotherForLoopVariable;
+
+
+switch ('test') {
+	case 'blah':
+		$weirdSwitchVariable = 'something';
+		break;
+
+	case 'foo':
+		$weirdSwitchVariable = 'muhehee';
+		break;
+
+	default:
+		return;
+		break;
+}
+
+echo $weirdSwitchVariable;
+
+[] ? ($definedInTernary = 'foo') : ($definedInTernary = 'bar');
+echo $definedInTernary;
+
+[] ? ($maybeDefinedInTernary = 'foo') : false;
+echo $maybeDefinedInTernary;
+
+[] ? true : ($anotherMaybeDefinedInTernary = 'foo');
+echo $anotherMaybeDefinedInTernary;
+
+while ($whileVariableUsedAndThenDefined && $whileVariableUsedAndThenDefined = 1) {
+
+}
+
+for (; $forVariableUsedAndThenDefined && $forVariableUsedAndThenDefined = 1;) {
+
+}
+
+while (isset($variableInWhileIsset)) {
+	echo $variableInWhileIsset;
+}

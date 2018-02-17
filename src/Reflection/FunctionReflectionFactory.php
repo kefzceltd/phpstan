@@ -2,6 +2,7 @@
 
 namespace PHPStan\Reflection;
 
+use PHPStan\Reflection\Php\PhpFunctionReflection;
 use PHPStan\Type\Type;
 
 interface FunctionReflectionFactory
@@ -11,6 +12,6 @@ interface FunctionReflectionFactory
 		\ReflectionFunction $reflection,
 		array $phpDocParameterTypes,
 		Type $phpDocReturnType = null
-	): FunctionReflection;
+	): PhpFunctionReflection;
 
 }

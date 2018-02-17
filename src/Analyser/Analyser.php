@@ -82,7 +82,7 @@ class Analyser
 		TypeSpecifier $typeSpecifier,
 		FileHelper $fileHelper,
 		array $ignoreErrors,
-		string $bootstrapFile = null,
+		?string $bootstrapFile,
 		bool $reportUnmatchedIgnoredErrors,
 		int $internalErrorsCountLimit
 	)
@@ -110,8 +110,8 @@ class Analyser
 	public function analyse(
 		array $files,
 		bool $onlyFiles,
-		\Closure $preFileCallback = null,
-		\Closure $postFileCallback = null,
+		?\Closure $preFileCallback = null,
+		?\Closure $postFileCallback = null,
 		bool $debug = false
 	): array
 	{
@@ -154,7 +154,7 @@ class Analyser
 				$this->nodeScopeResolver->processNodes(
 					$this->parser->parseFile($file),
 					new Scope($this->broker, $this->printer, $this->typeSpecifier, $file),
-					function (\PhpParser\Node $node, Scope $scope) use (&$fileErrors) {
+					function (\PhpParser\Node $node, Scope $scope) use (&$fileErrors): void {
 						foreach ($this->registry->getRules(get_class($node)) as $rule) {
 							$ruleErrors = $this->createErrors(
 								$node,

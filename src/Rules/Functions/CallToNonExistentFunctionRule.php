@@ -36,7 +36,13 @@ class CallToNonExistentFunctionRule implements \PHPStan\Rules\Rule
 			return [];
 		}
 
-		if (strpos((string) $node->name, 'apache_') === 0 || strpos((string) $node->name, 'fastcgi_') === 0) {
+		$lowercaseFunctionName = strtolower((string) $node->name);
+
+		if (
+			strpos($lowercaseFunctionName, 'apache_') === 0
+			|| strpos($lowercaseFunctionName, 'fastcgi_') === 0
+			|| $lowercaseFunctionName === 'getallheaders'
+		) {
 			return [];
 		}
 
@@ -47,7 +53,12 @@ class CallToNonExistentFunctionRule implements \PHPStan\Rules\Rule
 		$function = $this->broker->getFunction($node->name, $scope);
 		$name = (string) $node->name;
 
-		if ($function->getName() !== $this->broker->resolveFunctionName($node->name, $scope)) {
+		/** @var string $calledFunctionName */
+		$calledFunctionName = $this->broker->resolveFunctionName($node->name, $scope);
+		if (
+			strtolower($function->getName()) === strtolower($calledFunctionName)
+			&& $function->getName() !== $calledFunctionName
+		) {
 			return [sprintf('Call to function %s() with incorrect case: %s', $function->getName(), $name)];
 		}
 

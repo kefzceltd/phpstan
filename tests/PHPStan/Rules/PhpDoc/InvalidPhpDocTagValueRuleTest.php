@@ -16,11 +16,11 @@ class InvalidPhpDocTagValueRuleTest extends \PHPStan\Testing\RuleTestCase
 		);
 	}
 
-	public function testRule()
+	public function testRule(): void
 	{
 		$this->analyse([__DIR__ . '/data/invalid-phpdoc.php'], [
 			[
-				'PHPDoc tag @param has invalid value (): Unexpected token "\n", expected TOKEN_IDENTIFIER at offset 13',
+				'PHPDoc tag @param has invalid value (): Unexpected token "\n *", expected TOKEN_IDENTIFIER at offset 13',
 				24,
 			],
 			[
@@ -44,7 +44,7 @@ class InvalidPhpDocTagValueRuleTest extends \PHPStan\Testing\RuleTestCase
 				24,
 			],
 			[
-				'PHPDoc tag @var has invalid value (): Unexpected token "\n", expected TOKEN_IDENTIFIER at offset 156',
+				'PHPDoc tag @var has invalid value (): Unexpected token "\n *", expected TOKEN_IDENTIFIER at offset 156',
 				24,
 			],
 			[
@@ -56,7 +56,7 @@ class InvalidPhpDocTagValueRuleTest extends \PHPStan\Testing\RuleTestCase
 				24,
 			],
 			[
-				'PHPDoc tag @return has invalid value (): Unexpected token "\n", expected TOKEN_IDENTIFIER at offset 208',
+				'PHPDoc tag @return has invalid value (): Unexpected token "\n *", expected TOKEN_IDENTIFIER at offset 208',
 				24,
 			],
 			[

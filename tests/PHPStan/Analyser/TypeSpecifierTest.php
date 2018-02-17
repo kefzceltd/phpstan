@@ -30,12 +30,13 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 	/** @var Scope */
 	private $scope;
 
-	protected function setUp()
+	protected function setUp(): void
 	{
 		$broker = $this->createBroker();
 		$this->printer = new \PhpParser\PrettyPrinter\Standard();
 		$this->typeSpecifier = new TypeSpecifier($this->printer);
 		$this->scope = new Scope($broker, $this->printer, $this->typeSpecifier, '');
+		$this->scope = $this->scope->enterClass($broker->getClass('DateTime'));
 		$this->scope = $this->scope->assignVariable('bar', new ObjectType('Bar'), TrinaryLogic::createYes());
 		$this->scope = $this->scope->assignVariable('stringOrNull', new UnionType([new StringType(), new NullType()]), TrinaryLogic::createYes());
 		$this->scope = $this->scope->assignVariable('barOrNull', new UnionType([new ObjectType('Bar'), new NullType()]), TrinaryLogic::createYes());
@@ -48,7 +49,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 	 * @param array $expectedPositiveResult
 	 * @param array $expectedNegatedResult
 	 */
-	public function testCondition(Expr $expr, array $expectedPositiveResult, array $expectedNegatedResult)
+	public function testCondition(Expr $expr, array $expectedPositiveResult, array $expectedNegatedResult): void
 	{
 		$specifiedTypes = $this->typeSpecifier->specifyTypesInCondition($this->scope, $expr, TypeSpecifier::CONTEXT_TRUTHY);
 		$actualResult = $this->toReadableResult($specifiedTypes);
@@ -82,6 +83,22 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 			],
 			[
 				new Expr\BinaryOp\BooleanOr(
+					$this->createFunctionCall('is_int'),
+					$this->createFunctionCall('random')
+				),
+				[],
+				['$foo' => '~int'],
+			],
+			[
+				new Expr\BinaryOp\LogicalAnd(
+					$this->createFunctionCall('is_int'),
+					$this->createFunctionCall('random')
+				),
+				['$foo' => 'int'],
+				[],
+			],
+			[
+				new Expr\BinaryOp\LogicalOr(
 					$this->createFunctionCall('is_int'),
 					$this->createFunctionCall('random')
 				),
@@ -321,6 +338,22 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 				['$foo' => 'int'],
 			],
 			[
+				new Equal(
+					new Variable('foo'),
+					new Expr\ConstFetch(new Name('false'))
+				),
+				['$foo' => '~object'],
+				['$foo' => '~false|null'],
+			],
+			[
+				new Equal(
+					new Variable('foo'),
+					new Expr\ConstFetch(new Name('null'))
+				),
+				['$foo' => '~object'],
+				['$foo' => '~false|null'],
+			],
+			[
 				new Expr\BinaryOp\Identical(
 					new Variable('foo'),
 					new Variable('bar')
@@ -343,6 +376,17 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 				]),
 				['$foo' => 'object'],
 				[],
+			],
+			[
+				new FuncCall(new Name('is_a'), [
+					new Arg(new Variable('foo')),
+					new Arg(new Expr\ClassConstFetch(
+						new Name('static'),
+						'class'
+					)),
+				]),
+				['$foo' => 'static(DateTime)'],
+				['$foo' => '~static(DateTime)'],
 			],
 			[
 				new FuncCall(new Name('is_a'), [

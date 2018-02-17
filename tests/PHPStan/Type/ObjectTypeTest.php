@@ -22,7 +22,7 @@ class ObjectTypeTest extends \PHPStan\Testing\TestCase
 	 * @param ObjectType $type
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsIterable(ObjectType $type, TrinaryLogic $expectedResult)
+	public function testIsIterable(ObjectType $type, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -39,7 +39,7 @@ class ObjectTypeTest extends \PHPStan\Testing\TestCase
 		return [
 			[new ObjectType('Closure'), TrinaryLogic::createYes()],
 			[new ObjectType('Unknown'), TrinaryLogic::createMaybe()],
-			[new ObjectType('DateTime'), TrinaryLogic::createNo()],
+			[new ObjectType('DateTime'), TrinaryLogic::createMaybe()],
 		];
 	}
 
@@ -48,7 +48,7 @@ class ObjectTypeTest extends \PHPStan\Testing\TestCase
 	 * @param ObjectType $type
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsCallable(ObjectType $type, TrinaryLogic $expectedResult)
+	public function testIsCallable(ObjectType $type, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 
@@ -209,7 +209,7 @@ class ObjectTypeTest extends \PHPStan\Testing\TestCase
 	 * @param Type $otherType
 	 * @param TrinaryLogic $expectedResult
 	 */
-	public function testIsSuperTypeOf(ObjectType $type, Type $otherType, TrinaryLogic $expectedResult)
+	public function testIsSuperTypeOf(ObjectType $type, Type $otherType, TrinaryLogic $expectedResult): void
 	{
 		$this->createBroker();
 

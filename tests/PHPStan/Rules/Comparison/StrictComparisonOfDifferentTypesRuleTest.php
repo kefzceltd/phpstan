@@ -10,7 +10,7 @@ class StrictComparisonOfDifferentTypesRuleTest extends \PHPStan\Testing\RuleTest
 		return new StrictComparisonOfDifferentTypesRule();
 	}
 
-	public function testStrictComparison()
+	public function testStrictComparison(): void
 	{
 		$this->analyse(
 			[__DIR__ . '/data/strict-comparison.php'],
@@ -83,14 +83,23 @@ class StrictComparisonOfDifferentTypesRuleTest extends \PHPStan\Testing\RuleTest
 					'Strict comparison using === between array and null will always evaluate to false.',
 					164,
 				],
+				[
+					'Strict comparison using !== between StrictComparison\Node|null and false will always evaluate to true.',
+					212,
+				],
+				[
+					'Strict comparison using !== between StrictComparison\Node|null and false will always evaluate to true.',
+					255,
+				],
+				[
+					'Strict comparison using !== between stdClass and null will always evaluate to true.',
+					271,
+				],
 			]
 		);
 	}
 
-	/**
-	 * @requires PHP 7.1
-	 */
-	public function testStrictComparisonPhp71()
+	public function testStrictComparisonPhp71(): void
 	{
 		$this->analyse([__DIR__ . '/data/strict-comparison-71.php'], []);
 	}

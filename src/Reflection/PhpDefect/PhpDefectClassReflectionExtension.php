@@ -21,6 +21,7 @@ class PhpDefectClassReflectionExtension implements PropertiesClassReflectionExte
 			's' => 'int',
 			'invert' => 'int',
 			'days' => 'mixed',
+			'f' => 'float',
 		],
 		\DOMAttr::class => [ // extends DOMNode
 			'name' => 'string',
@@ -145,13 +146,6 @@ class PhpDefectClassReflectionExtension implements PropertiesClassReflectionExte
 		],
 	];
 
-	/** @var string[][] */
-	private static $properties71 = [
-		\DateInterval::class => [
-			'f' => 'float',
-		],
-	];
-
 	/** @var TypeStringResolver */
 	private $typeStringResolver;
 
@@ -162,9 +156,6 @@ class PhpDefectClassReflectionExtension implements PropertiesClassReflectionExte
 	{
 		$this->typeStringResolver = $typeStringResolver;
 		$this->properties = self::$defaultProperties;
-		if (PHP_VERSION_ID >= 70100) { // since PHP 7.1
-			$this->properties = array_merge_recursive($this->properties, self::$properties71);
-		}
 	}
 
 	public function hasProperty(ClassReflection $classReflection, string $propertyName): bool
@@ -184,12 +175,7 @@ class PhpDefectClassReflectionExtension implements PropertiesClassReflectionExte
 		);
 	}
 
-	/**
-	 * @param \PHPStan\Reflection\ClassReflection $classReflection
-	 * @param string $propertyName
-	 * @return \PHPStan\Reflection\ClassReflection|null
-	 */
-	private function getClassWithProperties(ClassReflection $classReflection, string $propertyName)
+	private function getClassWithProperties(ClassReflection $classReflection, string $propertyName): ?\PHPStan\Reflection\ClassReflection
 	{
 		if (isset($this->properties[$classReflection->getName()][$propertyName])) {
 			return $classReflection;

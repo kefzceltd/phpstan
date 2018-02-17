@@ -151,14 +151,18 @@ class ObjectType implements TypeWithClassName
 		return $this->className;
 	}
 
-	public function canAccessProperties(): bool
+	public function canAccessProperties(): TrinaryLogic
 	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
-		return strtolower($this->className) !== 'stdclass';
+		if (strtolower($this->className) === 'stdclass') {
+			return TrinaryLogic::createNo();
+		}
+
+		return TrinaryLogic::createYes();
 	}
 
 	public function hasMethod(string $methodName): bool
@@ -177,9 +181,9 @@ class ObjectType implements TypeWithClassName
 		return $broker->getClass($this->className)->getMethod($methodName, $scope);
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
 	public function hasConstant(string $constantName): bool
@@ -198,29 +202,9 @@ class ObjectType implements TypeWithClassName
 		return $broker->getClass($this->className)->getConstant($constantName);
 	}
 
-	public function isDocumentableNatively(): bool
-	{
-		return true;
-	}
-
 	public function isIterable(): TrinaryLogic
 	{
-		$broker = Broker::getInstance();
-
-		if (!$broker->hasClass($this->className)) {
-			return TrinaryLogic::createMaybe();
-		}
-
-		$classReflection = $broker->getClass($this->className);
-		if ($classReflection->isSubclassOf(\Traversable::class) || $classReflection->getName() === \Traversable::class) {
-			return TrinaryLogic::createYes();
-		}
-
-		if ($classReflection->isInterface()) {
-			return TrinaryLogic::createMaybe();
-		}
-
-		return TrinaryLogic::createNo();
+		return $this->isInstanceOf(\Traversable::class);
 	}
 
 	public function getIterableKeyType(): Type
@@ -277,6 +261,34 @@ class ObjectType implements TypeWithClassName
 		return new ErrorType();
 	}
 
+	public function isOffsetAccessible(): TrinaryLogic
+	{
+		return $this->isInstanceOf(\ArrayAccess::class);
+	}
+
+	public function getOffsetValueType(): Type
+	{
+		$broker = Broker::getInstance();
+
+		if (!$broker->hasClass($this->className)) {
+			return new ErrorType();
+		}
+
+		$classReflection = $broker->getClass($this->className);
+
+		if ($classReflection->isSubclassOf(\ArrayAccess::class)) {
+			if ($classReflection->hasNativeMethod('offsetGet')) {
+				return RecursionGuard::run($this, function () use ($classReflection) {
+					return $classReflection->getNativeMethod('offsetGet')->getReturnType();
+				});
+			}
+
+			return new MixedType();
+		}
+
+		return new ErrorType();
+	}
+
 	public function isCallable(): TrinaryLogic
 	{
 		$broker = Broker::getInstance();
@@ -285,21 +297,46 @@ class ObjectType implements TypeWithClassName
 			return TrinaryLogic::createMaybe();
 		}
 
-		if ($broker->getClass($this->className)->hasNativeMethod('__invoke')) {
+		$classReflection = $broker->getClass($this->className);
+		if ($classReflection->hasNativeMethod('__invoke')) {
 			return TrinaryLogic::createYes();
+		}
+
+		if (!$classReflection->getNativeReflection()->isFinal()) {
+			return TrinaryLogic::createMaybe();
 		}
 
 		return TrinaryLogic::createNo();
 	}
 
-	public function isClonable(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		return true;
+		return TrinaryLogic::createYes();
 	}
 
 	public static function __set_state(array $properties): Type
 	{
 		return new self($properties['className']);
+	}
+
+	public function isInstanceOf(string $className): TrinaryLogic
+	{
+		$broker = Broker::getInstance();
+
+		if (!$broker->hasClass($this->className)) {
+			return TrinaryLogic::createMaybe();
+		}
+
+		$classReflection = $broker->getClass($this->className);
+		if ($classReflection->isSubclassOf($className) || $classReflection->getName() === $className) {
+			return TrinaryLogic::createYes();
+		}
+
+		if ($classReflection->isInterface()) {
+			return TrinaryLogic::createMaybe();
+		}
+
+		return TrinaryLogic::createNo();
 	}
 
 }

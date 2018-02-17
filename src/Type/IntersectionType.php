@@ -84,13 +84,11 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		return implode('&', $typeNames);
 	}
 
-	public function canAccessProperties(): bool
+	public function canAccessProperties(): TrinaryLogic
 	{
-		$result = $this->intersectResults(function (Type $type): TrinaryLogic {
-			return $type->canAccessProperties() ? TrinaryLogic::createYes() : TrinaryLogic::createNo();
+		return $this->intersectResults(function (Type $type): TrinaryLogic {
+			return $type->canAccessProperties();
 		});
-
-		return $result->yes();
 	}
 
 	public function hasProperty(string $propertyName): bool
@@ -115,13 +113,11 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
-		$result = $this->intersectResults(function (Type $type): TrinaryLogic {
-			return $type->canCallMethods() ? TrinaryLogic::createYes() : TrinaryLogic::createNo();
+		return $this->intersectResults(function (Type $type): TrinaryLogic {
+			return $type->canCallMethods();
 		});
-
-		return $result->yes();
 	}
 
 	public function hasMethod(string $methodName): bool
@@ -146,13 +142,11 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
-		$result = $this->intersectResults(function (Type $type): TrinaryLogic {
-			return $type->canAccessConstants() ? TrinaryLogic::createYes() : TrinaryLogic::createNo();
+		return $this->intersectResults(function (Type $type): TrinaryLogic {
+			return $type->canAccessConstants();
 		});
-
-		return $result->yes();
 	}
 
 	public function hasConstant(string $constantName): bool
@@ -177,11 +171,6 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function isDocumentableNatively(): bool
-	{
-		return false;
-	}
-
 	public function isIterable(): TrinaryLogic
 	{
 		return $this->intersectResults(function (Type $type): TrinaryLogic {
@@ -203,6 +192,20 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		});
 	}
 
+	public function isOffsetAccessible(): TrinaryLogic
+	{
+		return $this->intersectResults(function (Type $type): TrinaryLogic {
+			return $type->isOffsetAccessible();
+		});
+	}
+
+	public function getOffsetValueType(): Type
+	{
+		return $this->intersectTypes(function (Type $type): Type {
+			return $type->getOffsetValueType();
+		});
+	}
+
 	public function isCallable(): TrinaryLogic
 	{
 		return $this->intersectResults(function (Type $type): TrinaryLogic {
@@ -210,15 +213,11 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		});
 	}
 
-	public function isClonable(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		foreach ($this->types as $type) {
-			if ($type->isClonable()) {
-				return true;
-			}
-		}
-
-		return false;
+		return $this->intersectResults(function (Type $type): TrinaryLogic {
+			return $type->isCloneable();
+		});
 	}
 
 	public function resolveStatic(string $className): Type

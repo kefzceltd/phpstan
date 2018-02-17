@@ -43,9 +43,9 @@ class NeverType implements CompoundType
 		return '*NEVER*';
 	}
 
-	public function canAccessProperties(): bool
+	public function canAccessProperties(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createYes();
 	}
 
 	public function hasProperty(string $propertyName): bool
@@ -58,9 +58,9 @@ class NeverType implements CompoundType
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canCallMethods(): bool
+	public function canCallMethods(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createYes();
 	}
 
 	public function hasMethod(string $methodName): bool
@@ -73,9 +73,9 @@ class NeverType implements CompoundType
 		throw new \PHPStan\ShouldNotHappenException();
 	}
 
-	public function canAccessConstants(): bool
+	public function canAccessConstants(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createYes();
 	}
 
 	public function hasConstant(string $constantName): bool
@@ -86,11 +86,6 @@ class NeverType implements CompoundType
 	public function getConstant(string $constantName): ClassConstantReflection
 	{
 		throw new \PHPStan\ShouldNotHappenException();
-	}
-
-	public function isDocumentableNatively(): bool
-	{
-		return true;
 	}
 
 	public function isIterable(): TrinaryLogic
@@ -108,14 +103,24 @@ class NeverType implements CompoundType
 		return new NeverType();
 	}
 
+	public function isOffsetAccessible(): TrinaryLogic
+	{
+		return TrinaryLogic::createYes();
+	}
+
+	public function getOffsetValueType(): Type
+	{
+		return new NeverType();
+	}
+
 	public function isCallable(): TrinaryLogic
 	{
 		return TrinaryLogic::createYes();
 	}
 
-	public function isClonable(): bool
+	public function isCloneable(): TrinaryLogic
 	{
-		return false;
+		return TrinaryLogic::createYes();
 	}
 
 	public static function __set_state(array $properties): Type

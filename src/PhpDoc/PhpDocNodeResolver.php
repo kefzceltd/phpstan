@@ -29,7 +29,7 @@ class PhpDocNodeResolver
 
 	public function resolve(PhpDocNode $phpDocNode, NameScope $nameScope): ResolvedPhpDocBlock
 	{
-		return new ResolvedPhpDocBlock(
+		return ResolvedPhpDocBlock::create(
 			$this->resolveVarTags($phpDocNode, $nameScope),
 			$this->resolveMethodTags($phpDocNode, $nameScope),
 			$this->resolvePropertyTags($phpDocNode, $nameScope),
@@ -180,12 +180,7 @@ class PhpDocNodeResolver
 		return $resolved;
 	}
 
-	/**
-	 * @param  PhpDocNode $phpDocNode
-	 * @param  NameScope $nameScope
-	 * @return \PHPStan\PhpDoc\Tag\ReturnTag|null
-	 */
-	private function resolveReturnTag(PhpDocNode $phpDocNode, NameScope $nameScope)
+	private function resolveReturnTag(PhpDocNode $phpDocNode, NameScope $nameScope): ?\PHPStan\PhpDoc\Tag\ReturnTag
 	{
 		foreach ($phpDocNode->getReturnTagValues() as $tagValue) {
 			return new ReturnTag($this->typeNodeResolver->resolve($tagValue->type, $nameScope));

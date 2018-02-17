@@ -37,11 +37,11 @@ class VariableCloningRule implements \PHPStan\Rules\Rule
 			$type = \PHPStan\Type\TypeCombinator::removeNull($type);
 		}
 
-		if ($type->isClonable()) {
+		if ($type->isCloneable()->yes()) {
 			return [];
 		}
 
-		if ($node->expr instanceof Variable) {
+		if ($node->expr instanceof Variable && is_string($node->expr->name)) {
 			return [
 				sprintf(
 					'Cannot clone non-object variable $%s of type %s.',

@@ -13,7 +13,7 @@ class ReturnTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 		return new ReturnTypeRule(new FunctionReturnTypeCheck(new \PhpParser\PrettyPrinter\Standard(), new RuleLevelHelper($this->createBroker(), true, false, true)));
 	}
 
-	public function testReturnTypeRule()
+	public function testReturnTypeRule(): void
 	{
 		require_once __DIR__ . '/data/returnTypes.php';
 		$this->analyse([__DIR__ . '/data/returnTypes.php'], [
@@ -40,21 +40,6 @@ class ReturnTypeRuleTest extends \PHPStan\Testing\RuleTestCase
 			[
 				'Function ReturnTypes\returnVoid() with return type void returns int but should not return anything.',
 				54,
-			],
-		]);
-	}
-
-	public function testReturnTypeRulePhp70()
-	{
-		if (PHP_VERSION_ID >= 70100) {
-			$this->markTestSkipped(
-				'Test can be run only on PHP 7.0 - higher versions fail with the following test in the parse phase.'
-			);
-		}
-		$this->analyse([__DIR__ . '/data/returnTypes-7.0.php'], [
-			[
-				'Function ReturnTypes\Php70\returnInteger() should return int but empty return statement found.',
-				7,
 			],
 		]);
 	}

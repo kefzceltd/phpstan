@@ -5,7 +5,7 @@ namespace PHPStan\Type;
 class FileTypeMapperTest extends \PHPStan\Testing\TestCase
 {
 
-	public function testGetResolvedPhpDoc()
+	public function testGetResolvedPhpDoc(): void
 	{
 		$this->createBroker();
 
@@ -16,7 +16,7 @@ class FileTypeMapperTest extends \PHPStan\Testing\TestCase
  * @property int | float $numericBazBazProperty
  * @property X $singleLetterObjectName
  *
- * @method void simpleMethod
+ * @method void simpleMethod()
  * @method string returningMethod()
  * @method ?float returningNullableScalar()
  * @method ?\stdClass returningNullableObject()
@@ -24,7 +24,6 @@ class FileTypeMapperTest extends \PHPStan\Testing\TestCase
  * @method Image rotate(float $angle, $backgroundColor)
  * @method int | float paramMultipleTypesWithExtraSpaces(string | null $string, stdClass | null $object)
  */');
-
 		$this->assertCount(0, $resolvedA->getVarTags());
 		$this->assertCount(0, $resolvedA->getParamTags());
 		$this->assertCount(2, $resolvedA->getPropertyTags());
@@ -81,15 +80,20 @@ class FileTypeMapperTest extends \PHPStan\Testing\TestCase
 		$this->assertFalse($paramMultipleTypesWithExtraSpaces->getParameters()['object']->isVariadic());
 	}
 
-	public function testFileWithDependentPhpDocs()
+	public function testFileWithDependentPhpDocs(): void
 	{
 		$this->createBroker();
 
 		/** @var FileTypeMapper $fileTypeMapper */
 		$fileTypeMapper = $this->getContainer()->getByType(FileTypeMapper::class);
 
+		$realpath = realpath(__DIR__ . '/data/dependent-phpdocs.php');
+		if ($realpath === false) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
 		$resolved = $fileTypeMapper->getResolvedPhpDoc(
-			realpath(__DIR__ . '/data/dependent-phpdocs.php'),
+			$realpath,
 			\DependentPhpDocs\Foo::class,
 			'/** @param Foo[]|Foo|\Iterator $pages */'
 		);
@@ -102,15 +106,20 @@ class FileTypeMapperTest extends \PHPStan\Testing\TestCase
 	}
 
 
-	public function testFileWithCyclicPhpDocs()
+	public function testFileWithCyclicPhpDocs(): void
 	{
 		$this->getContainer()->getByType(\PHPStan\Broker\Broker::class);
 
 		/** @var FileTypeMapper $fileTypeMapper */
 		$fileTypeMapper = $this->getContainer()->getByType(FileTypeMapper::class);
 
+		$realpath = realpath(__DIR__ . '/data/cyclic-phpdocs.php');
+		if ($realpath === false) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
 		$resolved = $fileTypeMapper->getResolvedPhpDoc(
-			realpath(__DIR__ . '/data/cyclic-phpdocs.php'),
+			$realpath,
 			\CyclicPhpDocs\Foo::class,
 			'/** @return iterable<Foo> | Foo */'
 		);
