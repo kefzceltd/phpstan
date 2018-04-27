@@ -25,7 +25,8 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 		return new CallMethodsRule(
 			$broker,
 			new FunctionCallParametersCheck($ruleLevelHelper, true, true),
-			$ruleLevelHelper
+			$ruleLevelHelper,
+			true
 		);
 	}
 
@@ -247,6 +248,26 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 				'Parameter #1 $s of method Test\ForeachSituation::takesInt() expects int|null, string|null given.',
 				595,
 			],
+			[
+				'Parameter #1 $str of method Test\LiteralArrayTypeCheck::test() expects string, int given.',
+				632,
+			],
+			[
+				'Parameter #1 $str of method Test\LiteralArrayTypeCheck::test() expects string, true given.',
+				633,
+			],
+			[
+				'Cannot call method add() on null.',
+				647,
+			],
+			[
+				'Parameter #1 $str of method Test\CheckIsCallable::test() expects callable, string given.',
+				658,
+			],
+			[
+				'Parameter #1 $str of method Test\CheckIsCallable::test() expects callable, string given.',
+				660,
+			],
 		]);
 	}
 
@@ -379,6 +400,22 @@ class CallMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 			[
 				'Parameter #1 $s of method Test\ForeachSituation::takesInt() expects int|null, string|null given.',
 				595,
+			],
+			[
+				'Parameter #1 $str of method Test\LiteralArrayTypeCheck::test() expects string, int given.',
+				632,
+			],
+			[
+				'Parameter #1 $str of method Test\LiteralArrayTypeCheck::test() expects string, true given.',
+				633,
+			],
+			[
+				'Parameter #1 $str of method Test\CheckIsCallable::test() expects callable, string given.',
+				658,
+			],
+			[
+				'Parameter #1 $str of method Test\CheckIsCallable::test() expects callable, string given.',
+				660,
 			],
 		]);
 	}

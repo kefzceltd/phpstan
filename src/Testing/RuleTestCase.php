@@ -5,7 +5,6 @@ namespace PHPStan\Testing;
 use PHPStan\Analyser\Analyser;
 use PHPStan\Analyser\Error;
 use PHPStan\Analyser\NodeScopeResolver;
-use PHPStan\Analyser\TypeSpecifier;
 use PHPStan\Cache\Cache;
 use PHPStan\PhpDoc\PhpDocStringResolver;
 use PHPStan\Rules\Registry;
@@ -30,7 +29,12 @@ abstract class RuleTestCase extends \PHPStan\Testing\TestCase
 			$broker = $this->createBroker();
 			$printer = new \PhpParser\PrettyPrinter\Standard();
 			$fileHelper = $this->getFileHelper();
-			$typeSpecifier = new TypeSpecifier($printer);
+			$typeSpecifier = $this->createTypeSpecifier(
+				$printer,
+				$broker,
+				$this->getMethodTypeSpecifyingExtensions(),
+				$this->getStaticMethodTypeSpecifyingExtensions()
+			);
 			$this->analyser = new Analyser(
 				$broker,
 				$this->getParser(),
@@ -41,6 +45,7 @@ abstract class RuleTestCase extends \PHPStan\Testing\TestCase
 					$printer,
 					new FileTypeMapper($this->getParser(), $this->getContainer()->getByType(PhpDocStringResolver::class), $this->createMock(Cache::class)),
 					$fileHelper,
+					$typeSpecifier,
 					$this->shouldPolluteScopeWithLoopInitialAssignments(),
 					$this->shouldPolluteCatchScopeWithTryAssignments(),
 					[]
@@ -58,11 +63,30 @@ abstract class RuleTestCase extends \PHPStan\Testing\TestCase
 		return $this->analyser;
 	}
 
+	/**
+	 * @return \PHPStan\Type\MethodTypeSpecifyingExtension[]
+	 */
+	protected function getMethodTypeSpecifyingExtensions(): array
+	{
+		return [];
+	}
+
+	/**
+	 * @return \PHPStan\Type\StaticMethodTypeSpecifyingExtension[]
+	 */
+	protected function getStaticMethodTypeSpecifyingExtensions(): array
+	{
+		return [];
+	}
+
+	/**
+	 * @param string[] $files
+	 * @param mixed[] $expectedErrors
+	 */
 	public function analyse(array $files, array $expectedErrors): void
 	{
 		$files = array_map([$this->getFileHelper(), 'normalizePath'], $files);
 		$actualErrors = $this->getAnalyser()->analyse($files, false);
-		$this->assertInternalType('array', $actualErrors);
 
 		$strictlyTypedSprintf = function (int $line, string $message): string {
 			return sprintf('%02d: %s', $line, $message);

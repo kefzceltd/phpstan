@@ -5,8 +5,11 @@ namespace PHPStan\Type;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
+use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\PropertyReflection;
+use PHPStan\Reflection\TrivialParametersAcceptor;
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Constant\ConstantBooleanType;
 
 class IntersectionType implements CompoundType, StaticResolvableType
 {
@@ -73,15 +76,32 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		return TrinaryLogic::maxMin(...$results);
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
-		$typeNames = [];
+		return $level->handle(
+			function () use ($level): string {
+				$typeNames = [];
+				foreach ($this->types as $type) {
+					if (
+						$type instanceof ConstantType
+						&& !$type instanceof ConstantBooleanType
+					) {
+						$type = $type->generalize();
+					}
+					$typeNames[] = $type->describe($level);
+				}
 
-		foreach ($this->types as $type) {
-			$typeNames[] = $type->describe();
-		}
+				return implode('&', $typeNames);
+			},
+			function () use ($level): string {
+				$typeNames = [];
+				foreach ($this->types as $type) {
+					$typeNames[] = $type->describe($level);
+				}
 
-		return implode('&', $typeNames);
+				return implode('&', $typeNames);
+			}
+		);
 	}
 
 	public function canAccessProperties(): TrinaryLogic
@@ -199,10 +219,17 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		});
 	}
 
-	public function getOffsetValueType(): Type
+	public function getOffsetValueType(Type $offsetType): Type
 	{
-		return $this->intersectTypes(function (Type $type): Type {
-			return $type->getOffsetValueType();
+		return $this->intersectTypes(function (Type $type) use ($offsetType): Type {
+			return $type->getOffsetValueType($offsetType);
+		});
+	}
+
+	public function setOffsetValueType(?Type $offsetType, Type $valueType): Type
+	{
+		return $this->intersectTypes(function (Type $type) use ($offsetType, $valueType): Type {
+			return $type->setOffsetValueType($offsetType, $valueType);
 		});
 	}
 
@@ -213,11 +240,75 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		});
 	}
 
+	public function getCallableParametersAcceptor(Scope $scope): ParametersAcceptor
+	{
+		if ($this->isCallable()->no()) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
+		return new TrivialParametersAcceptor();
+	}
+
 	public function isCloneable(): TrinaryLogic
 	{
 		return $this->intersectResults(function (Type $type): TrinaryLogic {
 			return $type->isCloneable();
 		});
+	}
+
+	public function toBoolean(): BooleanType
+	{
+		/** @var BooleanType $type */
+		$type = $this->intersectTypes(function (Type $type): BooleanType {
+			return $type->toBoolean();
+		});
+
+		return $type;
+	}
+
+	public function toNumber(): Type
+	{
+		$type = $this->intersectTypes(function (Type $type): Type {
+			return $type->toNumber();
+		});
+
+		return $type;
+	}
+
+	public function toString(): Type
+	{
+		$type = $this->intersectTypes(function (Type $type): Type {
+			return $type->toString();
+		});
+
+		return $type;
+	}
+
+	public function toInteger(): Type
+	{
+		$type = $this->intersectTypes(function (Type $type): Type {
+			return $type->toInteger();
+		});
+
+		return $type;
+	}
+
+	public function toFloat(): Type
+	{
+		$type = $this->intersectTypes(function (Type $type): Type {
+			return $type->toFloat();
+		});
+
+		return $type;
+	}
+
+	public function toArray(): Type
+	{
+		$type = $this->intersectTypes(function (Type $type): Type {
+			return $type->toArray();
+		});
+
+		return $type;
 	}
 
 	public function resolveStatic(string $className): Type
@@ -230,6 +321,10 @@ class IntersectionType implements CompoundType, StaticResolvableType
 		return new self(UnionTypeHelper::changeBaseClass($className, $this->getTypes()));
 	}
 
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self($properties['types']);

@@ -12,11 +12,12 @@ use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
 use PhpParser\Node\Scalar\String_;
 use PHPStan\TrinaryLogic;
-use PHPStan\Type\FalseBooleanType;
+use PHPStan\Type\Constant\ConstantBooleanType;
 use PHPStan\Type\NullType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\UnionType;
+use PHPStan\Type\VerbosityLevel;
 
 class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 {
@@ -34,13 +35,13 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 	{
 		$broker = $this->createBroker();
 		$this->printer = new \PhpParser\PrettyPrinter\Standard();
-		$this->typeSpecifier = new TypeSpecifier($this->printer);
-		$this->scope = new Scope($broker, $this->printer, $this->typeSpecifier, '');
+		$this->typeSpecifier = $this->createTypeSpecifier($this->printer, $broker);
+		$this->scope = new Scope($broker, $this->printer, $this->typeSpecifier, ScopeContext::create(''));
 		$this->scope = $this->scope->enterClass($broker->getClass('DateTime'));
 		$this->scope = $this->scope->assignVariable('bar', new ObjectType('Bar'), TrinaryLogic::createYes());
 		$this->scope = $this->scope->assignVariable('stringOrNull', new UnionType([new StringType(), new NullType()]), TrinaryLogic::createYes());
 		$this->scope = $this->scope->assignVariable('barOrNull', new UnionType([new ObjectType('Bar'), new NullType()]), TrinaryLogic::createYes());
-		$this->scope = $this->scope->assignVariable('stringOrFalse', new UnionType([new StringType(), new FalseBooleanType()]), TrinaryLogic::createYes());
+		$this->scope = $this->scope->assignVariable('stringOrFalse', new UnionType([new StringType(), new ConstantBooleanType(false)]), TrinaryLogic::createYes());
 	}
 
 	/**
@@ -51,11 +52,11 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 	 */
 	public function testCondition(Expr $expr, array $expectedPositiveResult, array $expectedNegatedResult): void
 	{
-		$specifiedTypes = $this->typeSpecifier->specifyTypesInCondition($this->scope, $expr, TypeSpecifier::CONTEXT_TRUTHY);
+		$specifiedTypes = $this->typeSpecifier->specifyTypesInCondition($this->scope, $expr, TypeSpecifierContext::createTruthy());
 		$actualResult = $this->toReadableResult($specifiedTypes);
 		$this->assertSame($expectedPositiveResult, $actualResult, sprintf('if (%s)', $this->printer->prettyPrintExpr($expr)));
 
-		$specifiedTypes = $this->typeSpecifier->specifyTypesInCondition($this->scope, $expr, TypeSpecifier::CONTEXT_FALSEY);
+		$specifiedTypes = $this->typeSpecifier->specifyTypesInCondition($this->scope, $expr, TypeSpecifierContext::createFalsey());
 		$actualResult = $this->toReadableResult($specifiedTypes);
 		$this->assertSame($expectedNegatedResult, $actualResult, sprintf('if not (%s)', $this->printer->prettyPrintExpr($expr)));
 	}
@@ -72,6 +73,11 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 				$this->createFunctionCall('is_numeric'),
 				['$foo' => 'float|int|string'],
 				['$foo' => '~float|int|string'],
+			],
+			[
+				$this->createFunctionCall('is_scalar'),
+				['$foo' => 'bool|float|int|string'],
+				['$foo' => '~bool|float|int|string'],
 			],
 			[
 				new Expr\BinaryOp\BooleanAnd(
@@ -132,7 +138,6 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 				['$foo' => 'int'],
 				['$foo' => '~int'],
 			],
-
 			[
 				$this->createInstanceOf('Foo'),
 				['$foo' => 'Foo'],
@@ -154,7 +159,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 
 			[
 				new Variable('foo'),
-				['$foo' => '~false|null'],
+				['$foo' => '~0|0.0|\'\'|array()|false|null'],
 				['$foo' => '~object'],
 			],
 			[
@@ -162,7 +167,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new Variable('foo'),
 					$this->createFunctionCall('random')
 				),
-				['$foo' => '~false|null'],
+				['$foo' => '~0|0.0|\'\'|array()|false|null'],
 				[],
 			],
 			[
@@ -176,12 +181,12 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 			[
 				new Expr\BooleanNot(new Variable('bar')),
 				['$bar' => '~object'],
-				['$bar' => '~false|null'],
+				['$bar' => '~0|0.0|\'\'|array()|false|null'],
 			],
 
 			[
 				new PropertyFetch(new Variable('this'), 'foo'),
-				['$this->foo' => '~false|null'],
+				['$this->foo' => '~0|0.0|\'\'|array()|false|null'],
 				['$this->foo' => '~object'],
 			],
 			[
@@ -189,7 +194,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new PropertyFetch(new Variable('this'), 'foo'),
 					$this->createFunctionCall('random')
 				),
-				['$this->foo' => '~false|null'],
+				['$this->foo' => '~0|0.0|\'\'|array()|false|null'],
 				[],
 			],
 			[
@@ -203,7 +208,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 			[
 				new Expr\BooleanNot(new PropertyFetch(new Variable('this'), 'foo')),
 				['$this->foo' => '~object'],
-				['$this->foo' => '~false|null'],
+				['$this->foo' => '~0|0.0|\'\'|array()|false|null'],
 			],
 
 			[
@@ -294,7 +299,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new Variable('foo'),
 					new Expr\ConstFetch(new Name('true'))
 				),
-				['$foo' => 'true & ~false|null'],
+				['$foo' => 'true & ~0|0.0|\'\'|array()|false|null'],
 				['$foo' => '~true'],
 			],
 			[
@@ -343,7 +348,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new Expr\ConstFetch(new Name('false'))
 				),
 				['$foo' => '~object'],
-				['$foo' => '~false|null'],
+				['$foo' => '~0|0.0|\'\'|array()|false|null'],
 			],
 			[
 				new Equal(
@@ -351,7 +356,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new Expr\ConstFetch(new Name('null'))
 				),
 				['$foo' => '~object'],
-				['$foo' => '~false|null'],
+				['$foo' => '~0|0.0|\'\'|array()|false|null'],
 			],
 			[
 				new Expr\BinaryOp\Identical(
@@ -429,7 +434,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new Variable('foo'),
 					new Variable('stringOrNull')
 				),
-				['$foo' => '~false|null'],
+				['$foo' => '~0|0.0|\'\'|array()|false|null'],
 				['$foo' => '~object'],
 			],
 			[
@@ -437,7 +442,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new Variable('foo'),
 					new Variable('stringOrFalse')
 				),
-				['$foo' => '~false|null'],
+				['$foo' => '~0|0.0|\'\'|array()|false|null'],
 				['$foo' => '~object'],
 			],
 			[
@@ -445,7 +450,7 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					new Variable('foo'),
 					new Variable('bar')
 				),
-				['$foo' => '~false|null'],
+				['$foo' => '~0|0.0|\'\'|array()|false|null'],
 				['$foo' => '~object'],
 			],
 			[
@@ -457,8 +462,27 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 					'$stringOrNull' => '~null',
 					'$barOrNull' => '~null',
 				],
-				[],
+				[
+					'isset($stringOrNull, $barOrNull)' => '~object',
+				],
 			],
+			[
+				new Expr\BooleanNot(new Expr\Empty_(new Variable('stringOrNull'))),
+				[
+					'$stringOrNull' => '~false|null',
+				],
+				[
+					'empty($stringOrNull)' => '~0|0.0|\'\'|array()|false|null',
+				],
+			],
+			/*[
+				new Expr\BinaryOp\Identical(
+					new Variable('foo'),
+					new LNumber(123)
+				),
+				['$foo' => '123'],
+				['$foo' => '~123'],
+			],*/
 		];
 	}
 
@@ -467,11 +491,11 @@ class TypeSpecifierTest extends \PHPStan\Testing\TestCase
 		$typesDescription = [];
 
 		foreach ($specifiedTypes->getSureTypes() as $exprString => list($exprNode, $exprType)) {
-			$typesDescription[$exprString][] = $exprType->describe();
+			$typesDescription[$exprString][] = $exprType->describe(VerbosityLevel::value());
 		}
 
 		foreach ($specifiedTypes->getSureNotTypes() as $exprString => list($exprNode, $exprType)) {
-			$typesDescription[$exprString][] = '~' . $exprType->describe();
+			$typesDescription[$exprString][] = '~' . $exprType->describe(VerbosityLevel::value());
 		}
 
 		foreach ($typesDescription as $exprString => $exprTypes) {

@@ -30,7 +30,7 @@ class StaticTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isIterable()', $type->describe())
+			sprintf('%s -> isIterable()', $type->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -39,7 +39,7 @@ class StaticTypeTest extends \PHPStan\Testing\TestCase
 		return [
 			[new StaticType('Closure'), TrinaryLogic::createYes()],
 			[new StaticType('Unknown'), TrinaryLogic::createMaybe()],
-			[new StaticType('DateTime'), TrinaryLogic::createNo()],
+			[new StaticType('DateTime'), TrinaryLogic::createMaybe()],
 		];
 	}
 
@@ -56,7 +56,7 @@ class StaticTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isCallable()', $type->describe())
+			sprintf('%s -> isCallable()', $type->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -225,7 +225,7 @@ class StaticTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isSuperTypeOf(%s)', $type->describe(), $otherType->describe())
+			sprintf('%s -> isSuperTypeOf(%s)', $type->describe(VerbosityLevel::value()), $otherType->describe(VerbosityLevel::value()))
 		);
 	}
 

@@ -6,11 +6,15 @@ use PHPStan\Analyser\Scope;
 use PHPStan\Broker\Broker;
 use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
+use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\PropertyReflection;
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Traits\TruthyBooleanTypeTrait;
 
 class StaticType implements StaticResolvableType, TypeWithClassName
 {
+
+	use TruthyBooleanTypeTrait;
 
 	/** @var string */
 	private $baseClass;
@@ -64,7 +68,7 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return TrinaryLogic::createNo();
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		return sprintf('static(%s)', $this->baseClass);
 	}
@@ -189,24 +193,24 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return $this->staticObjectType->isInstanceOf(\ArrayAccess::class);
 	}
 
-	public function getOffsetValueType(): Type
+	public function getOffsetValueType(Type $offsetType): Type
 	{
-		return $this->staticObjectType->getOffsetValueType();
+		return $this->staticObjectType->getOffsetValueType($offsetType);
+	}
+
+	public function setOffsetValueType(?Type $offsetType, Type $valueType): Type
+	{
+		return $this->staticObjectType->setOffsetValueType($offsetType, $valueType);
 	}
 
 	public function isCallable(): TrinaryLogic
 	{
-		$broker = Broker::getInstance();
+		return $this->staticObjectType->isCallable();
+	}
 
-		if (!$broker->hasClass($this->baseClass)) {
-			return TrinaryLogic::createMaybe();
-		}
-
-		if ($broker->getClass($this->baseClass)->hasMethod('__invoke')) {
-			return TrinaryLogic::createYes();
-		}
-
-		return TrinaryLogic::createNo();
+	public function getCallableParametersAcceptor(Scope $scope): ParametersAcceptor
+	{
+		return $this->staticObjectType->getCallableParametersAcceptor($scope);
 	}
 
 	public function isCloneable(): TrinaryLogic
@@ -214,6 +218,35 @@ class StaticType implements StaticResolvableType, TypeWithClassName
 		return TrinaryLogic::createYes();
 	}
 
+	public function toNumber(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toString(): Type
+	{
+		return $this->staticObjectType->toString();
+	}
+
+	public function toInteger(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toFloat(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toArray(): Type
+	{
+		return $this->staticObjectType->toArray();
+	}
+
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new static($properties['baseClass']);

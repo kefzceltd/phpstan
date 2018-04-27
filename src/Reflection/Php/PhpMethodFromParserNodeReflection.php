@@ -3,6 +3,7 @@
 namespace PHPStan\Reflection\Php;
 
 use PhpParser\Node\Stmt\ClassMethod;
+use PHPStan\Reflection\ClassMemberReflection;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Reflection\MethodReflection;
 use PHPStan\Type\Type;
@@ -14,6 +15,15 @@ class PhpMethodFromParserNodeReflection extends PhpFunctionFromParserNodeReflect
 	/** @var \PHPStan\Reflection\ClassReflection */
 	private $declaringClass;
 
+	/**
+	 * @param ClassReflection $declaringClass
+	 * @param ClassMethod $classMethod
+	 * @param \PHPStan\Type\Type[] $realParameterTypes
+	 * @param \PHPStan\Type\Type[] $phpDocParameterTypes
+	 * @param bool $realReturnTypePresent
+	 * @param Type $realReturnType
+	 * @param null|Type $phpDocReturnType
+	 */
 	public function __construct(
 		ClassReflection $declaringClass,
 		ClassMethod $classMethod,
@@ -21,7 +31,7 @@ class PhpMethodFromParserNodeReflection extends PhpFunctionFromParserNodeReflect
 		array $phpDocParameterTypes,
 		bool $realReturnTypePresent,
 		Type $realReturnType,
-		Type $phpDocReturnType = null
+		?Type $phpDocReturnType
 	)
 	{
 		parent::__construct(
@@ -40,7 +50,7 @@ class PhpMethodFromParserNodeReflection extends PhpFunctionFromParserNodeReflect
 		return $this->declaringClass;
 	}
 
-	public function getPrototype(): MethodReflection
+	public function getPrototype(): ClassMemberReflection
 	{
 		return $this->declaringClass->getNativeMethod($this->getClassMethod()->name)->getPrototype();
 	}

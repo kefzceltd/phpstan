@@ -92,6 +92,13 @@ class Foo extends FooParent
 	{
 		$parent = new FooParent();
 		$differentInstance = new self();
+
+		/** @var self $inlineSelf */
+		$inlineSelf = doFoo();
+
+		/** @var Bar $inlineBar */
+		$inlineBar = doFoo();
+
 		foreach ($moreSpecifiedObject->doFluentUnionIterable() as $fluentUnionIterableBaz) {
 			die;
 		}

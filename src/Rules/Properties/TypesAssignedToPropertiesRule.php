@@ -5,6 +5,7 @@ namespace PHPStan\Rules\Properties;
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\RuleLevelHelper;
+use PHPStan\Type\VerbosityLevel;
 
 class TypesAssignedToPropertiesRule implements \PHPStan\Rules\Rule
 {
@@ -71,16 +72,13 @@ class TypesAssignedToPropertiesRule implements \PHPStan\Rules\Rule
 		}
 		if (!$this->ruleLevelHelper->accepts($propertyType, $assignedValueType)) {
 			$propertyDescription = $this->propertyDescriptor->describeProperty($propertyReflection, $propertyFetch);
-			if ($propertyDescription === null) {
-				return [];
-			}
 
 			return [
 				sprintf(
 					'%s (%s) does not accept %s.',
 					$propertyDescription,
-					$propertyType->describe(),
-					$assignedValueType->describe()
+					$propertyType->describe(VerbosityLevel::typeOnly()),
+					$assignedValueType->describe(VerbosityLevel::typeOnly())
 				),
 			];
 		}

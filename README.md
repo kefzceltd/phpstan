@@ -53,7 +53,7 @@ Unique feature of PHPStan is the ability to define and statically check "magic" 
 accessing properties that are not defined in the class but are created in `__get` and `__set`
 and invoking methods using `__call`.
 
-See [Class reflection extensions](#class-reflection-extensions) and [Dynamic return type extensions](#dynamic-return-type-extensions).
+See [Class reflection extensions](#class-reflection-extensions), [Dynamic return type extensions](#dynamic-return-type-extensions) and [Type-specifying extensions](#type-specifying-extensions).
 
 You can also install official framework-specific extensions:
 
@@ -62,18 +62,21 @@ You can also install official framework-specific extensions:
 * [Nette Framework](https://github.com/phpstan/phpstan-nette)
 * [Dibi - Database Abstraction Library](https://github.com/phpstan/phpstan-dibi)
 * [PHP-Parser](https://github.com/phpstan/phpstan-php-parser)
+* [beberlei/assert](https://github.com/phpstan/phpstan-beberlei-assert)
+* [webmozart/assert](https://github.com/phpstan/phpstan-webmozart-assert)
 
 Unofficial extensions for other frameworks and libraries are also available:
 
 * [Phony](https://github.com/eloquent/phpstan-phony)
 * [Symfony Framework](https://github.com/lookyman/phpstan-symfony)
 * [Prophecy](https://github.com/Jan0707/phpstan-prophecy)
+* [Laravel](https://github.com/Weebly/phpstan-laravel)
 
 New extensions are becoming available on a regular basis!
 
 ## Prerequisites
 
-PHPStan requires PHP >= 7.0. You have to run it in environment with PHP 7.x but the actual code does not have to use
+PHPStan requires PHP >= 7.1. You have to run it in environment with PHP 7.x but the actual code does not have to use
 PHP 7.x features. (Code written for PHP 5.6 and earlier can run on 7.x mostly unmodified.)
 
 PHPStan works best with modern object-oriented code. The more strongly-typed your code is, the more information
@@ -400,7 +403,7 @@ class methods like `__get`, `__set` and `__call`. Because PHPStan is all about s
 When PHPStan stumbles upon a property or a method that is unknown to built-in class reflection, it iterates
 over all registered class reflection extensions until it finds one that defines the property or method.
 
-Class reflection extension cannot have `PHPStan\Broker\Broker` (service for obtaining class reflections) injected in the constructor due to circular reference issue, but the extensions can implement `PHPStan\Reflection\BrokerAwareClassReflectionExtension` interface to obtain Broker via a setter.
+Class reflection extension cannot have `PHPStan\Broker\Broker` (service for obtaining class reflections) injected in the constructor due to circular reference issue, but the extensions can implement `PHPStan\Reflection\BrokerAwareExtension` interface to obtain Broker via a setter.
 
 ### Properties class reflection extensions
 
@@ -583,6 +586,85 @@ There's also an analogous functionality for:
 * **static methods** using `DynamicStaticMethodReturnTypeExtension` interface
 and `phpstan.broker.dynamicStaticMethodReturnTypeExtension` service tag.
 * **functions** using `DynamicFunctionReturnTypeExtension` interface and `phpstan.broker.dynamicFunctionReturnTypeExtension` service tag.
+
+## Type-specifying extensions
+
+These extensions allow you to specify types of expressions based on certain pre-existing conditions. This is best illustrated with couple examples:
+
+```php
+if (is_int($variable)) {
+    // here we can be sure that $variable is integer
+}
+```
+
+```php
+// using PHPUnit's asserts
+
+self::assertNotNull($variable);
+// here we can be sure that $variable is not null
+```
+
+Type-specifying extension cannot have `PHPStan\Analyser\TypeSpecifier` injected in the constructor due to circular reference issue, but the extensions can implement `PHPStan\Analyser\TypeSpecifierAwareExtension` interface to obtain TypeSpecifier via a setter.
+
+This is the interface for type-specifying extension:
+
+```php
+namespace PHPStan\Type;
+
+use PhpParser\Node\Expr\StaticCall;
+use PHPStan\Analyser\Scope;
+use PHPStan\Analyser\SpecifiedTypes;
+use PHPStan\Analyser\TypeSpecifierContext;
+use PHPStan\Reflection\MethodReflection;
+
+interface StaticMethodTypeSpecifyingExtension
+{
+
+	public function getClass(): string;
+
+	public function isStaticMethodSupported(MethodReflection $staticMethodReflection, StaticCall $node, TypeSpecifierContext $context): bool;
+
+	public function specifyTypes(MethodReflection $staticMethodReflection, StaticCall $node, Scope $scope, TypeSpecifierContext $context): SpecifiedTypes;
+
+}
+```
+
+And this is how you'd write the extension for the second example above:
+
+```php
+public function getClass(): string
+{
+	return \PHPUnit\Framework\Assert::class;
+}
+
+public function isStaticMethodSupported(MethodReflection $staticMethodReflection, StaticCall $node, TypeSpecifierContext $context): bool;
+{
+	// The $context argument tells us if we're in an if condition or not (as in this case).
+	return $staticMethodReflection->getName() === 'assertNotNull' && $context->null();
+}
+
+public function specifyTypes(MethodReflection $staticMethodReflection, StaticCall $node, Scope $scope, TypeSpecifierContext $context): SpecifiedTypes
+{
+	// Assuming extension implements \PHPStan\Analyser\TypeSpecifierAwareExtension.
+	return $this->typeSpecifier->create($node->var, \PHPStan\Type\TypeCombinator::removeNull($scope->getType($node->var)), $context);
+}
+```
+
+And finally, register the extension to PHPStan in the project's config file:
+
+```
+services:
+	-
+		class: App\PHPStan\AssertNotNullTypeSpecifyingExtension
+		tags:
+			- phpstan.typeSpecifier.staticMethodTypeSpecifyingExtension
+```
+
+There's also an analogous functionality for:
+
+* **dynamic methods** using `MethodTypeSpecifyingExtension` interface
+and `phpstan.typeSpecifier.methodTypeSpecifyingExtension` service tag.
+* **functions** using `FunctionTypeSpecifyingExtension` interface and `phpstan.typeSpecifier.functionTypeSpecifyingExtension` service tag.
 
 ## Known issues
 

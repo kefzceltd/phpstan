@@ -9,34 +9,34 @@ use PHPStan\Broker\Broker;
 use PHPStan\Rules\FunctionCallParametersCheck;
 use PHPStan\Rules\RuleLevelHelper;
 use PHPStan\Type\ErrorType;
+use PHPStan\Type\VerbosityLevel;
 
 class CallMethodsRule implements \PHPStan\Rules\Rule
 {
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var \PHPStan\Rules\FunctionCallParametersCheck
-	 */
+	/** @var \PHPStan\Rules\FunctionCallParametersCheck */
 	private $check;
 
-	/**
-	 * @var \PHPStan\Rules\RuleLevelHelper
-	 */
+	/** @var \PHPStan\Rules\RuleLevelHelper */
 	private $ruleLevelHelper;
+
+	/** @var bool */
+	private $checkFunctionNameCase;
 
 	public function __construct(
 		Broker $broker,
 		FunctionCallParametersCheck $check,
-		RuleLevelHelper $ruleLevelHelper
+		RuleLevelHelper $ruleLevelHelper,
+		bool $checkFunctionNameCase
 	)
 	{
 		$this->broker = $broker;
 		$this->check = $check;
 		$this->ruleLevelHelper = $ruleLevelHelper;
+		$this->checkFunctionNameCase = $checkFunctionNameCase;
 	}
 
 	public function getNodeType(): string
@@ -67,7 +67,7 @@ class CallMethodsRule implements \PHPStan\Rules\Rule
 		}
 		if (!$type->canCallMethods()->yes()) {
 			return [
-				sprintf('Cannot call method %s() on %s.', $name, $type->describe()),
+				sprintf('Cannot call method %s() on %s.', $name, $type->describe(VerbosityLevel::typeOnly())),
 			];
 		}
 
@@ -94,7 +94,7 @@ class CallMethodsRule implements \PHPStan\Rules\Rule
 			return [
 				sprintf(
 					'Call to an undefined method %s::%s().',
-					$type->describe(),
+					$type->describe(VerbosityLevel::typeOnly()),
 					$name
 				),
 			];
@@ -129,7 +129,11 @@ class CallMethodsRule implements \PHPStan\Rules\Rule
 			]
 		));
 
-		if (strtolower($methodReflection->getName()) === strtolower($name) && $methodReflection->getName() !== $name) {
+		if (
+			$this->checkFunctionNameCase
+			&& strtolower($methodReflection->getName()) === strtolower($name)
+			&& $methodReflection->getName() !== $name
+		) {
 			$errors[] = sprintf('Call to method %s with incorrect case: %s', $messagesMethodName, $name);
 		}
 

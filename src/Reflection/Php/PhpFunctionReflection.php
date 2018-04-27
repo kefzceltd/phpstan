@@ -9,11 +9,11 @@ use PHPStan\Parser\Parser;
 use PHPStan\Reflection\FunctionReflection;
 use PHPStan\Reflection\ParametersAcceptorWithPhpDocs;
 use PHPStan\Type\ArrayType;
+use PHPStan\Type\BooleanType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\MixedType;
 use PHPStan\Type\ObjectWithoutClassType;
 use PHPStan\Type\StringType;
-use PHPStan\Type\TrueOrFalseBooleanType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\TypehintHelper;
@@ -48,13 +48,21 @@ class PhpFunctionReflection implements FunctionReflection, ParametersAcceptorWit
 	/** @var \PHPStan\Type\Type */
 	private $nativeReturnType;
 
+	/**
+	 * @param \ReflectionFunction $reflection
+	 * @param Parser $parser
+	 * @param FunctionCallStatementFinder $functionCallStatementFinder
+	 * @param Cache $cache
+	 * @param \PHPStan\Type\Type[] $phpDocParameterTypes
+	 * @param null|Type $phpDocReturnType
+	 */
 	public function __construct(
 		\ReflectionFunction $reflection,
 		Parser $parser,
 		FunctionCallStatementFinder $functionCallStatementFinder,
 		Cache $cache,
 		array $phpDocParameterTypes,
-		Type $phpDocReturnType = null
+		?Type $phpDocReturnType
 	)
 	{
 		$this->reflection = $reflection;
@@ -203,7 +211,7 @@ class PhpFunctionReflection implements FunctionReflection, ParametersAcceptorWit
 			) {
 				$this->parameters[1] = new DummyParameter(
 					'shortnames',
-					new TrueOrFalseBooleanType(),
+					new BooleanType(),
 					true
 				);
 			}
@@ -216,7 +224,7 @@ class PhpFunctionReflection implements FunctionReflection, ParametersAcceptorWit
 				// PHP bug #75799
 				$this->parameters[0] = new DummyParameter(
 					'exclude_disabled',
-					new TrueOrFalseBooleanType(),
+					new BooleanType(),
 					true
 				);
 			}

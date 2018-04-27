@@ -13,9 +13,10 @@ use PHPStan\PhpDocParser\Ast\Type\ThisTypeNode;
 use PHPStan\PhpDocParser\Ast\Type\TypeNode;
 use PHPStan\PhpDocParser\Ast\Type\UnionTypeNode;
 use PHPStan\Type\ArrayType;
+use PHPStan\Type\BooleanType;
 use PHPStan\Type\CallableType;
+use PHPStan\Type\Constant\ConstantBooleanType;
 use PHPStan\Type\ErrorType;
-use PHPStan\Type\FalseBooleanType;
 use PHPStan\Type\FloatType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\IntersectionType;
@@ -29,8 +30,6 @@ use PHPStan\Type\ResourceType;
 use PHPStan\Type\StaticType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\ThisType;
-use PHPStan\Type\TrueBooleanType;
-use PHPStan\Type\TrueOrFalseBooleanType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\TypeWithClassName;
@@ -79,13 +78,13 @@ class TypeNodeResolver
 
 			case 'bool':
 			case 'boolean':
-				return new TrueOrFalseBooleanType();
+				return new BooleanType();
 
 			case 'true':
-				return new TrueBooleanType();
+				return new ConstantBooleanType(true);
 
 			case 'false':
-				return new FalseBooleanType();
+				return new ConstantBooleanType(false);
 
 			case 'null':
 				return new NullType();
@@ -95,14 +94,14 @@ class TypeNodeResolver
 				return new FloatType();
 
 			case 'array':
-				return new ArrayType(new MixedType(), new MixedType());
+				return new ArrayType(new MixedType(true), new MixedType(true));
 
 			case 'scalar':
 				return new UnionType([
 					new IntegerType(),
 					new FloatType(),
 					new StringType(),
-					new TrueOrFalseBooleanType(),
+					new BooleanType(),
 				]);
 
 			case 'number':
@@ -112,7 +111,7 @@ class TypeNodeResolver
 				]);
 
 			case 'iterable':
-				return new IterableType(new MixedType(), new MixedType());
+				return new IterableType(new MixedType(true), new MixedType(true));
 
 			case 'callable':
 				return new CallableType();
@@ -202,19 +201,21 @@ class TypeNodeResolver
 			$addArray = true;
 
 			foreach ($otherTypeTypes as &$type) {
-				if ($type->isIterable()->yes() && $type->getIterableValueType()->isSuperTypeOf($arrayTypeType)->yes()) {
-					if ($type instanceof ObjectType) {
-						$type = new IntersectionType([$type, new IterableType(new MixedType(), $arrayTypeType)]);
-					} elseif ($type instanceof ArrayType) {
-						$type = new ArrayType(new MixedType(), $arrayTypeType);
-					} elseif ($type instanceof IterableType) {
-						$type = new IterableType(new MixedType(), $arrayTypeType);
-					} else {
-						continue;
-					}
-
-					$addArray = false;
+				if (!$type->isIterable()->yes() || !$type->getIterableValueType()->isSuperTypeOf($arrayTypeType)->yes()) {
+					continue;
 				}
+
+				if ($type instanceof ObjectType) {
+					$type = new IntersectionType([$type, new IterableType(new MixedType(), $arrayTypeType)]);
+				} elseif ($type instanceof ArrayType) {
+					$type = new ArrayType(new MixedType(), $arrayTypeType);
+				} elseif ($type instanceof IterableType) {
+					$type = new IterableType(new MixedType(), $arrayTypeType);
+				} else {
+					continue;
+				}
+
+				$addArray = false;
 			}
 
 			if ($addArray) {
@@ -244,17 +245,21 @@ class TypeNodeResolver
 
 		if ($mainType === 'array') {
 			if (count($genericTypes) === 1) { // array<ValueType>
-				return new ArrayType(new MixedType(), $genericTypes[0]);
+				return new ArrayType(new MixedType(true), $genericTypes[0]);
 
-			} elseif (count($genericTypes) === 2) { // array<KeyType, ValueType>
+			}
+
+			if (count($genericTypes) === 2) { // array<KeyType, ValueType>
 				return new ArrayType($genericTypes[0], $genericTypes[1]);
 			}
 
 		} elseif ($mainType === 'iterable') {
 			if (count($genericTypes) === 1) { // iterable<ValueType>
-				return new IterableType(new MixedType(), $genericTypes[0]);
+				return new IterableType(new MixedType(true), $genericTypes[0]);
 
-			} elseif (count($genericTypes) === 2) { // iterable<KeyType, ValueType>
+			}
+
+			if (count($genericTypes) === 2) { // iterable<KeyType, ValueType>
 				return new IterableType($genericTypes[0], $genericTypes[1]);
 			}
 		}

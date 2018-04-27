@@ -7,6 +7,7 @@ use PHPStan\Analyser\Scope;
 use PHPStan\Cache\Cache;
 use PHPStan\PhpDoc\PhpDocStringResolver;
 use PHPStan\Reflection\FunctionReflectionFactory;
+use PHPStan\Reflection\SignatureMap\SignatureMapProvider;
 use PHPStan\Type\FileTypeMapper;
 
 class BrokerTest extends \PHPStan\Testing\TestCase
@@ -26,7 +27,9 @@ class BrokerTest extends \PHPStan\Testing\TestCase
 			[],
 			[],
 			$this->createMock(FunctionReflectionFactory::class),
-			new FileTypeMapper($this->getParser(), $phpDocStringResolver, $this->createMock(Cache::class))
+			new FileTypeMapper($this->getParser(), $phpDocStringResolver, $this->createMock(Cache::class)),
+			$this->getContainer()->getByType(SignatureMapProvider::class),
+			[]
 		);
 	}
 

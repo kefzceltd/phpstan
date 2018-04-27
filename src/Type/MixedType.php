@@ -7,6 +7,7 @@ use PHPStan\Type\Traits\MaybeCallableTypeTrait;
 use PHPStan\Type\Traits\MaybeIterableTypeTrait;
 use PHPStan\Type\Traits\MaybeObjectTypeTrait;
 use PHPStan\Type\Traits\MaybeOffsetAccessibleTypeTrait;
+use PHPStan\Type\Traits\UndecidedBooleanTypeTrait;
 
 class MixedType implements CompoundType
 {
@@ -15,10 +16,9 @@ class MixedType implements CompoundType
 	use MaybeIterableTypeTrait;
 	use MaybeObjectTypeTrait;
 	use MaybeOffsetAccessibleTypeTrait;
+	use UndecidedBooleanTypeTrait;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $isExplicitMixed;
 
 	public function __construct(bool $isExplicitMixed = false)
@@ -53,9 +53,37 @@ class MixedType implements CompoundType
 		return TrinaryLogic::createMaybe();
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		return 'mixed';
+	}
+
+	public function toNumber(): Type
+	{
+		return new UnionType([
+			$this->toInteger(),
+			$this->toFloat(),
+		]);
+	}
+
+	public function toInteger(): Type
+	{
+		return new IntegerType();
+	}
+
+	public function toFloat(): Type
+	{
+		return new FloatType();
+	}
+
+	public function toString(): Type
+	{
+		return new StringType();
+	}
+
+	public function toArray(): Type
+	{
+		return new ArrayType(new MixedType(), new MixedType());
 	}
 
 	public function isExplicitMixed(): bool
@@ -63,6 +91,10 @@ class MixedType implements CompoundType
 		return $this->isExplicitMixed;
 	}
 
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self($properties['isExplicitMixed']);

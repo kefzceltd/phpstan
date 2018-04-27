@@ -12,23 +12,18 @@ use PHPStan\Type\ErrorType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\TypeCombinator;
+use PHPStan\Type\VerbosityLevel;
 
 class ClassConstantRule implements \PHPStan\Rules\Rule
 {
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var \PHPStan\Rules\RuleLevelHelper
-	 */
+	/** @var \PHPStan\Rules\RuleLevelHelper */
 	private $ruleLevelHelper;
 
-	/**
-	 * @var \PHPStan\Rules\ClassCaseSensitivityCheck
-	 */
+	/** @var \PHPStan\Rules\ClassCaseSensitivityCheck */
 	private $classCaseSensitivityCheck;
 
 	public function __construct(
@@ -63,7 +58,8 @@ class ClassConstantRule implements \PHPStan\Rules\Rule
 		$messages = [];
 		if ($class instanceof \PhpParser\Node\Name) {
 			$className = (string) $class;
-			if ($className === 'self' || $className === 'static') {
+			$lowercasedClassName = strtolower($className);
+			if (in_array($lowercasedClassName, ['self', 'static'], true)) {
 				if (!$scope->isInClass()) {
 					return [
 						sprintf('Using %s outside of class scope.', $className),
@@ -71,7 +67,7 @@ class ClassConstantRule implements \PHPStan\Rules\Rule
 				}
 
 				$className = $scope->getClassReflection()->getName();
-			} elseif ($className === 'parent') {
+			} elseif ($lowercasedClassName === 'parent') {
 				if (!$scope->isInClass()) {
 					return [
 						sprintf('Using %s outside of class scope.', $className),
@@ -128,7 +124,7 @@ class ClassConstantRule implements \PHPStan\Rules\Rule
 
 		if (!$classType->canAccessConstants()->yes()) {
 			return array_merge($messages, [
-				sprintf('Cannot access constant %s on %s.', $constantName, $typeForDescribe->describe()),
+				sprintf('Cannot access constant %s on %s.', $constantName, $typeForDescribe->describe(VerbosityLevel::typeOnly())),
 			]);
 		}
 
@@ -140,7 +136,7 @@ class ClassConstantRule implements \PHPStan\Rules\Rule
 			return array_merge($messages, [
 				sprintf(
 					'Access to undefined constant %s::%s.',
-					$typeForDescribe->describe(),
+					$typeForDescribe->describe(VerbosityLevel::typeOnly()),
 					$constantName
 				),
 			]);

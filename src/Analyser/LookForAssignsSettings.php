@@ -15,9 +15,7 @@ class LookForAssignsSettings
 		+ self::EARLY_TERMINATION_BREAK
 		+ self::EARLY_TERMINATION_STOP;
 
-	/**
-	 * @var int
-	 */
+	/** @var int */
 	private $respectEarlyTermination;
 
 	private function __construct(
@@ -77,7 +75,7 @@ class LookForAssignsSettings
 		return ($this->respectEarlyTermination & self::EARLY_TERMINATION_STOP) === self::EARLY_TERMINATION_STOP;
 	}
 
-	public function shouldIntersectVariables(\PhpParser\Node $earlyTerminationStatement = null): bool
+	public function shouldIntersectVariables(?\PhpParser\Node $earlyTerminationStatement): bool
 	{
 		if ($earlyTerminationStatement === null) {
 			return true;
@@ -90,6 +88,12 @@ class LookForAssignsSettings
 		return $earlyTerminationStatement instanceof Break_
 			|| $earlyTerminationStatement instanceof Continue_
 			|| ($this->respectEarlyTermination & self::EARLY_TERMINATION_STOP) === 0;
+	}
+
+	public function shouldGeneralizeConstantTypesOfNonIdempotentOperations(): bool
+	{
+		return ($this->respectEarlyTermination & self::EARLY_TERMINATION_STOP) === self::EARLY_TERMINATION_STOP
+			&& $this->respectEarlyTermination !== self::EARLY_TERMINATION_ALL;
 	}
 
 }

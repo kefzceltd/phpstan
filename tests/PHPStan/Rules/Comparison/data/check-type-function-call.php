@@ -44,6 +44,8 @@ class Foo
 		if (is_callable($arrayOfInt)) {
 
 		}
+
+		assert($integer instanceof \stdClass);
 	}
 
 }
@@ -69,6 +71,55 @@ class StringIsNotAlwaysCallable
 	{
 		if (is_callable($s)) {
 			$s();
+		}
+	}
+
+}
+
+class CheckIsCallable
+{
+
+	public function test()
+	{
+		if (is_callable('date')) {
+
+		}
+		if (is_callable('nonexistentFunction')) {
+
+		}
+	}
+
+}
+
+class IsNumeric
+{
+
+	public function test(string $str, float $float)
+	{
+		if (is_numeric($str)) {
+
+		}
+		if (is_numeric('123')) {
+
+		}
+		if (is_numeric('blabla')) {
+
+		}
+
+		$isNumeric = $float;
+		$maybeNumeric = $float;
+		if (doFoo()) {
+			$isNumeric = 123;
+			$maybeNumeric = 123;
+		} else {
+			$maybeNumeric = $str;
+		}
+
+		if (is_numeric($isNumeric)) {
+
+		}
+		if ($maybeNumeric) {
+
 		}
 	}
 

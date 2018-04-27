@@ -5,11 +5,16 @@ namespace PHPStan\Type;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
+use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\PropertyReflection;
+use PHPStan\Reflection\TrivialParametersAcceptor;
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Traits\FalseyBooleanTypeTrait;
 
 class NeverType implements CompoundType
 {
+
+	use FalseyBooleanTypeTrait;
 
 	/**
 	 * @return string[]
@@ -38,7 +43,7 @@ class NeverType implements CompoundType
 		return TrinaryLogic::createYes();
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		return '*NEVER*';
 	}
@@ -108,7 +113,12 @@ class NeverType implements CompoundType
 		return TrinaryLogic::createYes();
 	}
 
-	public function getOffsetValueType(): Type
+	public function getOffsetValueType(Type $offsetType): Type
+	{
+		return new NeverType();
+	}
+
+	public function setOffsetValueType(?Type $offsetType, Type $valueType): Type
 	{
 		return new NeverType();
 	}
@@ -118,11 +128,45 @@ class NeverType implements CompoundType
 		return TrinaryLogic::createYes();
 	}
 
+	public function getCallableParametersAcceptor(Scope $scope): ParametersAcceptor
+	{
+		return new TrivialParametersAcceptor();
+	}
+
 	public function isCloneable(): TrinaryLogic
 	{
 		return TrinaryLogic::createYes();
 	}
 
+	public function toNumber(): Type
+	{
+		return $this;
+	}
+
+	public function toString(): Type
+	{
+		return $this;
+	}
+
+	public function toInteger(): Type
+	{
+		return $this;
+	}
+
+	public function toFloat(): Type
+	{
+		return $this;
+	}
+
+	public function toArray(): Type
+	{
+		return $this;
+	}
+
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self();

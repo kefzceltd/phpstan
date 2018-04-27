@@ -176,6 +176,9 @@ class CallToFunctionParametersRuleTest extends \PHPStan\Testing\RuleTestCase
 	 */
 	public function testUnpackOnAfter711(): void
 	{
+		if (PHP_VERSION_ID < 70101) {
+			$this->markTestSkipped('This test requires PHP >= 7.1.1');
+		}
 		$this->analyse([__DIR__ . '/data/unpack.php'], [
 			[
 				'Function unpack invoked with 0 parameters, 2-3 required.',
@@ -186,6 +189,7 @@ class CallToFunctionParametersRuleTest extends \PHPStan\Testing\RuleTestCase
 
 	public function testUnpackOnBefore711(): void
 	{
+		$this->markTestIncomplete('Requires filtering the functionMap function parameters by current PHP reflection.');
 		if (PHP_VERSION_ID >= 70101) {
 			$this->markTestSkipped('This test requires PHP < 7.1.1');
 		}
@@ -212,6 +216,10 @@ class CallToFunctionParametersRuleTest extends \PHPStan\Testing\RuleTestCase
 			[
 				'Parameter #1 $foo of function PassedByReference\foo is passed by reference, so it expects variables only.',
 				33,
+			],
+			[
+				'Parameter #1 $array_arg of function reset expects array, null given.',
+				39,
 			],
 		]);
 	}

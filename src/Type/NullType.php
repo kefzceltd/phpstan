@@ -3,18 +3,23 @@
 namespace PHPStan\Type;
 
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Constant\ConstantArrayType;
+use PHPStan\Type\Constant\ConstantIntegerType;
+use PHPStan\Type\Constant\ConstantStringType;
+use PHPStan\Type\Traits\FalseyBooleanTypeTrait;
 use PHPStan\Type\Traits\NonCallableTypeTrait;
 use PHPStan\Type\Traits\NonIterableTypeTrait;
 use PHPStan\Type\Traits\NonObjectTypeTrait;
 use PHPStan\Type\Traits\NonOffsetAccessibleTypeTrait;
 
-class NullType implements Type
+class NullType implements ConstantScalarType
 {
 
 	use NonCallableTypeTrait;
 	use NonIterableTypeTrait;
 	use NonObjectTypeTrait;
 	use NonOffsetAccessibleTypeTrait;
+	use FalseyBooleanTypeTrait;
 
 	/**
 	 * @return string[]
@@ -22,6 +27,19 @@ class NullType implements Type
 	public function getReferencedClasses(): array
 	{
 		return [];
+	}
+
+	/**
+	 * @return null
+	 */
+	public function getValue()
+	{
+		return null;
+	}
+
+	public function generalize(): Type
+	{
+		return $this;
 	}
 
 	public function accepts(Type $type): bool
@@ -50,16 +68,55 @@ class NullType implements Type
 		return TrinaryLogic::createNo();
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		return 'null';
 	}
 
-	public function getOffsetValueType(): Type
+	public function toNumber(): Type
+	{
+		return new ConstantIntegerType(0);
+	}
+
+	public function toString(): Type
+	{
+		return new ConstantStringType('');
+	}
+
+	public function toInteger(): Type
+	{
+		return $this->toNumber();
+	}
+
+	public function toFloat(): Type
+	{
+		return $this->toNumber()->toFloat();
+	}
+
+	public function toArray(): Type
+	{
+		return new ConstantArrayType(
+			[new ConstantIntegerType(0)],
+			[$this],
+			1
+		);
+	}
+
+	public function getOffsetValueType(Type $offsetType): Type
 	{
 		return new NullType();
 	}
 
+	public function setOffsetValueType(?Type $offsetType, Type $valueType): Type
+	{
+		$array = new ConstantArrayType([], []);
+		return $array->setOffsetValueType($offsetType, $valueType);
+	}
+
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self();

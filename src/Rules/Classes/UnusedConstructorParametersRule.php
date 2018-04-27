@@ -31,6 +31,10 @@ class UnusedConstructorParametersRule implements \PHPStan\Rules\Rule
 	 */
 	public function processNode(Node $node, Scope $scope): array
 	{
+		if (!$scope->isInClass()) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
 		if ($node->name !== '__construct' || $node->stmts === null) {
 			return [];
 		}
@@ -45,6 +49,7 @@ class UnusedConstructorParametersRule implements \PHPStan\Rules\Rule
 		}
 
 		return $this->check->getUnusedParameters(
+			$scope,
 			array_map(function (Param $parameter): string {
 				return $parameter->name;
 			}, $node->params),

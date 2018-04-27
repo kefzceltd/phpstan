@@ -6,6 +6,7 @@ use PHPStan\TrinaryLogic;
 use PHPStan\Type\Traits\MaybeCallableTypeTrait;
 use PHPStan\Type\Traits\MaybeObjectTypeTrait;
 use PHPStan\Type\Traits\MaybeOffsetAccessibleTypeTrait;
+use PHPStan\Type\Traits\UndecidedBooleanTypeTrait;
 
 class IterableType implements StaticResolvableType, CompoundType
 {
@@ -13,6 +14,7 @@ class IterableType implements StaticResolvableType, CompoundType
 	use MaybeCallableTypeTrait;
 	use MaybeObjectTypeTrait;
 	use MaybeOffsetAccessibleTypeTrait;
+	use UndecidedBooleanTypeTrait;
 
 	/** @var \PHPStan\Type\Type */
 	private $keyType;
@@ -91,17 +93,42 @@ class IterableType implements StaticResolvableType, CompoundType
 		);
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		if ($this->keyType instanceof MixedType) {
 			if ($this->itemType instanceof MixedType) {
 				return 'iterable';
 			}
 
-			return sprintf('iterable<%s>', $this->itemType->describe());
+			return sprintf('iterable<%s>', $this->itemType->describe($level));
 		}
 
-		return sprintf('iterable<%s, %s>', $this->keyType->describe(), $this->itemType->describe());
+		return sprintf('iterable<%s, %s>', $this->keyType->describe($level), $this->itemType->describe($level));
+	}
+
+	public function toNumber(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toString(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toInteger(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toFloat(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toArray(): Type
+	{
+		return new ArrayType($this->keyType, $this->getItemType());
 	}
 
 	public function resolveStatic(string $className): Type
@@ -143,6 +170,10 @@ class IterableType implements StaticResolvableType, CompoundType
 		return $this->getItemType();
 	}
 
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self($properties['keyType'], $properties['itemType']);

@@ -10,54 +10,34 @@ use PHPStan\Rules\Registry;
 class Analyser
 {
 
-	/**
-	 * @var \PHPStan\Parser\Parser
-	 */
+	/** @var \PHPStan\Parser\Parser */
 	private $parser;
 
-	/**
-	 * @var \PHPStan\Rules\Registry
-	 */
+	/** @var \PHPStan\Rules\Registry */
 	private $registry;
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var \PHPStan\Analyser\NodeScopeResolver
-	 */
+	/** @var \PHPStan\Analyser\NodeScopeResolver */
 	private $nodeScopeResolver;
 
-	/**
-	 * @var \PhpParser\PrettyPrinter\Standard
-	 */
+	/** @var \PhpParser\PrettyPrinter\Standard */
 	private $printer;
 
-	/**
-	 * @var \PHPStan\Analyser\TypeSpecifier
-	 */
+	/** @var \PHPStan\Analyser\TypeSpecifier */
 	private $typeSpecifier;
 
-	/**
-	 * @var string[]
-	 */
+	/** @var string[] */
 	private $ignoreErrors;
 
-	/**
-	 * @var string|null
-	 */
+	/** @var string|null */
 	private $bootstrapFile;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $reportUnmatchedIgnoredErrors;
 
-	/**
-	 * @var int
-	 */
+	/** @var int */
 	private $internalErrorsCountLimit;
 
 	/**
@@ -153,15 +133,12 @@ class Analyser
 				}
 				$this->nodeScopeResolver->processNodes(
 					$this->parser->parseFile($file),
-					new Scope($this->broker, $this->printer, $this->typeSpecifier, $file),
+					new Scope($this->broker, $this->printer, $this->typeSpecifier, ScopeContext::create($file)),
 					function (\PhpParser\Node $node, Scope $scope) use (&$fileErrors): void {
 						foreach ($this->registry->getRules(get_class($node)) as $rule) {
-							$ruleErrors = $this->createErrors(
-								$node,
-								$scope->getAnalysedContextFile(),
-								$rule->processNode($node, $scope)
-							);
-							$fileErrors = array_merge($fileErrors, $ruleErrors);
+							foreach ($rule->processNode($node, $scope) as $message) {
+								$fileErrors[] = new Error($message, $scope->getFileDescription(), $node->getLine());
+							}
 						}
 					}
 				);
@@ -227,22 +204,6 @@ class Analyser
 
 		if ($reachedInternalErrorsCountLimit) {
 			$errors[] = sprintf('Reached internal errors count limit of %d, exiting...', $this->internalErrorsCountLimit);
-		}
-
-		return $errors;
-	}
-
-	/**
-	 * @param \PhpParser\Node $node
-	 * @param string $file
-	 * @param string[] $messages
-	 * @return \PHPStan\Analyser\Error[]
-	 */
-	private function createErrors(\PhpParser\Node $node, string $file, array $messages): array
-	{
-		$errors = [];
-		foreach ($messages as $message) {
-			$errors[] = new Error($message, $file, $node->getLine());
 		}
 
 		return $errors;

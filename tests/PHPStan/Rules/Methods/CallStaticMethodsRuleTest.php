@@ -9,9 +9,7 @@ use PHPStan\Rules\RuleLevelHelper;
 class CallStaticMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 {
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkThisOnly;
 
 	protected function getRule(): \PHPStan\Rules\Rule
@@ -22,7 +20,8 @@ class CallStaticMethodsRuleTest extends \PHPStan\Testing\RuleTestCase
 			$broker,
 			new FunctionCallParametersCheck($ruleLevelHelper, true, true),
 			$ruleLevelHelper,
-			new ClassCaseSensitivityCheck($broker)
+			new ClassCaseSensitivityCheck($broker),
+			true
 		);
 	}
 

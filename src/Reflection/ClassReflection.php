@@ -5,7 +5,6 @@ namespace PHPStan\Reflection;
 use PHPStan\Analyser\Scope;
 use PHPStan\Broker\Broker;
 use PHPStan\Reflection\Php\PhpClassReflectionExtension;
-use PHPStan\Reflection\Php\PhpMethodReflection;
 use PHPStan\Reflection\Php\PhpPropertyReflection;
 
 class ClassReflection
@@ -41,6 +40,14 @@ class ClassReflection
 	/** @var int[]|null */
 	private $classHierarchyDistances;
 
+	/**
+	 * @param Broker $broker
+	 * @param \PHPStan\Reflection\PropertiesClassReflectionExtension[] $propertiesClassReflectionExtensions
+	 * @param \PHPStan\Reflection\MethodsClassReflectionExtension[] $methodsClassReflectionExtensions
+	 * @param string $displayName
+	 * @param \ReflectionClass $reflection
+	 * @param bool $anonymous
+	 */
 	public function __construct(
 		Broker $broker,
 		array $propertiesClassReflectionExtensions,
@@ -113,6 +120,15 @@ class ClassReflection
 				$this->getName() => $distance,
 			];
 			$currentClassReflection = $this->getNativeReflection();
+			foreach ($this->getNativeReflection()->getTraits() as $trait) {
+				$distance++;
+				if (array_key_exists($trait->getName(), $distances)) {
+					continue;
+				}
+
+				$distances[$trait->getName()] = $distance;
+			}
+
 			while ($currentClassReflection->getParentClass() !== false) {
 				$distance++;
 				$parentClassName = $currentClassReflection->getParentClass()->getName();
@@ -120,6 +136,14 @@ class ClassReflection
 					$distances[$parentClassName] = $distance;
 				}
 				$currentClassReflection = $currentClassReflection->getParentClass();
+				foreach ($currentClassReflection->getTraits() as $trait) {
+					$distance++;
+					if (array_key_exists($trait->getName(), $distances)) {
+						continue;
+					}
+
+					$distances[$trait->getName()] = $distance;
+				}
 			}
 			foreach ($this->getNativeReflection()->getInterfaces() as $interface) {
 				$distance++;
@@ -166,13 +190,15 @@ class ClassReflection
 		}
 		if (!isset($this->methods[$key])) {
 			foreach ($this->methodsClassReflectionExtensions as $extension) {
-				if ($extension->hasMethod($this, $methodName)) {
-					$method = $extension->getMethod($this, $methodName);
-					if ($scope->canCallMethod($method)) {
-						return $this->methods[$key] = $method;
-					}
-					$this->methods[$key] = $method;
+				if (!$extension->hasMethod($this, $methodName)) {
+					continue;
 				}
+
+				$method = $extension->getMethod($this, $methodName);
+				if ($scope->canCallMethod($method)) {
+					return $this->methods[$key] = $method;
+				}
+				$this->methods[$key] = $method;
 			}
 		}
 
@@ -188,7 +214,7 @@ class ClassReflection
 		return $this->getPhpExtension()->hasMethod($this, $methodName);
 	}
 
-	public function getNativeMethod(string $methodName): PhpMethodReflection
+	public function getNativeMethod(string $methodName): MethodReflection
 	{
 		if (!$this->hasNativeMethod($methodName)) {
 			throw new \PHPStan\Reflection\MissingMethodFromReflectionException($this->getName(), $methodName);
@@ -214,13 +240,15 @@ class ClassReflection
 		}
 		if (!isset($this->properties[$key])) {
 			foreach ($this->propertiesClassReflectionExtensions as $extension) {
-				if ($extension->hasProperty($this, $propertyName)) {
-					$property = $extension->getProperty($this, $propertyName);
-					if ($scope->canAccessProperty($property)) {
-						return $this->properties[$key] = $property;
-					}
-					$this->properties[$key] = $property;
+				if (!$extension->hasProperty($this, $propertyName)) {
+					continue;
 				}
+
+				$property = $extension->getProperty($this, $propertyName);
+				if ($scope->canAccessProperty($property)) {
+					return $this->properties[$key] = $property;
+				}
+				$this->properties[$key] = $property;
 			}
 		}
 
@@ -341,6 +369,9 @@ class ClassReflection
 		return in_array($traitName, $this->getTraitNames(), true);
 	}
 
+	/**
+	 * @return string[]
+	 */
 	private function getTraitNames(): array
 	{
 		$class = $this->reflection;

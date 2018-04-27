@@ -4,10 +4,20 @@ namespace PHPStan\Rules\Comparison;
 
 use PhpParser\Node;
 use PHPStan\Analyser\Scope;
+use PHPStan\Type\Constant\ConstantBooleanType;
 use PHPStan\Type\NullType;
+use PHPStan\Type\VerbosityLevel;
 
 class StrictComparisonOfDifferentTypesRule implements \PHPStan\Rules\Rule
 {
+
+	/** @var bool */
+	private $checkAlwaysTrueStrictComparison;
+
+	public function __construct(bool $checkAlwaysTrueStrictComparison)
+	{
+		$this->checkAlwaysTrueStrictComparison = $checkAlwaysTrueStrictComparison;
+	}
 
 	public function getNodeType(): string
 	{
@@ -48,14 +58,48 @@ class StrictComparisonOfDifferentTypesRule implements \PHPStan\Rules\Rule
 			return [];
 		}
 
-		if ($leftType->isSuperTypeOf($rightType)->no()) {
+		$nodeType = $scope->getType($node);
+		if (
+			$nodeType instanceof ConstantBooleanType
+			&& (
+				(
+					$node instanceof Node\Expr\BinaryOp\Identical
+					&& !$nodeType->getValue()
+				) || (
+					$node instanceof Node\Expr\BinaryOp\NotIdentical
+					&& $nodeType->getValue()
+				)
+			)
+		) {
 			return [
 				sprintf(
 					'Strict comparison using %s between %s and %s will always evaluate to %s.',
 					$node instanceof Node\Expr\BinaryOp\Identical ? '===' : '!==',
-					$leftType->describe(),
-					$rightType->describe(),
+					$leftType->describe(VerbosityLevel::value()),
+					$rightType->describe(VerbosityLevel::value()),
 					$node instanceof Node\Expr\BinaryOp\Identical ? 'false' : 'true'
+				),
+			];
+		} elseif (
+			$this->checkAlwaysTrueStrictComparison
+			&& $nodeType instanceof ConstantBooleanType
+			&& (
+				(
+					$node instanceof Node\Expr\BinaryOp\Identical
+					&& $nodeType->getValue()
+				) || (
+					$node instanceof Node\Expr\BinaryOp\NotIdentical
+					&& !$nodeType->getValue()
+				)
+			)
+		) {
+			return [
+				sprintf(
+					'Strict comparison using %s between %s and %s will always evaluate to %s.',
+					$node instanceof Node\Expr\BinaryOp\Identical ? '===' : '!==',
+					$leftType->describe(VerbosityLevel::value()),
+					$rightType->describe(VerbosityLevel::value()),
+					$node instanceof Node\Expr\BinaryOp\Identical ? 'true' : 'false'
 				),
 			];
 		}

@@ -111,3 +111,39 @@ class IssetIssue
 	}
 
 }
+
+class CallArrayKeyAfterAssigningToIt
+{
+
+	public function test()
+	{
+		$arr = [null, null];
+		$arr[1] = new \DateTime();
+		$arr[1]->add(new \DateInterval('P1D'));
+
+		if (doFoo()) {
+			$arr[0] = new \DateTime();
+		}
+
+		$arr[0]->add(new \DateInterval('P1D'));
+	}
+
+}
+
+class ElseIfTruthyValueBug
+{
+
+	public function doFoo(?Test $test)
+	{
+		if (rand()) {
+			$result = new Test();
+		} elseif (!is_null($test)) {
+			$result = $test;
+		} else {
+			return;
+		}
+
+		$result->fetch();
+	}
+
+}

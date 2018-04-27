@@ -7,18 +7,15 @@ use PhpParser\Node\Expr\MethodCall;
 use PHPStan\Analyser\Scope;
 use PHPStan\Rules\RuleLevelHelper;
 use PHPStan\Type\UnionType;
+use PHPStan\Type\VerbosityLevel;
 
 class CallMethodsOnPossiblyNullRule implements \PHPStan\Rules\Rule
 {
 
-	/**
-	 * @var \PHPStan\Rules\RuleLevelHelper
-	 */
+	/** @var \PHPStan\Rules\RuleLevelHelper */
 	private $ruleLevelHelper;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkThisOnly;
 
 	public function __construct(
@@ -60,7 +57,7 @@ class CallMethodsOnPossiblyNullRule implements \PHPStan\Rules\Rule
 				sprintf(
 					'Calling method %s() on possibly null value of type %s.',
 					$node->name,
-					$type->describe()
+					$type->describe(VerbosityLevel::typeOnly())
 				),
 			];
 		}

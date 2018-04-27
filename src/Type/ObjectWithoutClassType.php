@@ -10,6 +10,7 @@ use PHPStan\TrinaryLogic;
 use PHPStan\Type\Traits\MaybeCallableTypeTrait;
 use PHPStan\Type\Traits\MaybeIterableTypeTrait;
 use PHPStan\Type\Traits\MaybeOffsetAccessibleTypeTrait;
+use PHPStan\Type\Traits\TruthyBooleanTypeTrait;
 
 class ObjectWithoutClassType implements Type
 {
@@ -17,6 +18,7 @@ class ObjectWithoutClassType implements Type
 	use MaybeCallableTypeTrait;
 	use MaybeIterableTypeTrait;
 	use MaybeOffsetAccessibleTypeTrait;
+	use TruthyBooleanTypeTrait;
 
 	public function hasProperty(string $propertyName): bool
 	{
@@ -58,7 +60,7 @@ class ObjectWithoutClassType implements Type
 		return TrinaryLogic::createNo();
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		return 'object';
 	}
@@ -103,6 +105,35 @@ class ObjectWithoutClassType implements Type
 		return TrinaryLogic::createYes();
 	}
 
+	public function toNumber(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toString(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toInteger(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toFloat(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toArray(): Type
+	{
+		return new ArrayType(new MixedType(), new MixedType());
+	}
+
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self();

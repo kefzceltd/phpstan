@@ -5,24 +5,16 @@ namespace PHPStan\Rules\Variables;
 class DefinedVariableRuleTest extends \PHPStan\Testing\RuleTestCase
 {
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $cliArgumentsVariablesRegistered;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkMaybeUndefinedVariables;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $polluteScopeWithLoopInitialAssignments;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $polluteCatchScopeWithTryAssignments;
 
 	protected function getRule(): \PHPStan\Rules\Rule
@@ -104,7 +96,7 @@ class DefinedVariableRuleTest extends \PHPStan\Testing\RuleTestCase
 				145,
 			],
 			[
-				'Undefined variable: $negatedVariableInEmpty',
+				'Variable $negatedVariableInEmpty might not be defined.',
 				156,
 			],
 			[
@@ -160,10 +152,6 @@ class DefinedVariableRuleTest extends \PHPStan\Testing\RuleTestCase
 				277,
 			],
 			[
-				'Undefined variable: $variableInBitwiseAndAssign',
-				278,
-			],
-			[
 				'Variable $mightBeUndefinedInDoWhile might not be defined.',
 				282,
 			],
@@ -206,6 +194,14 @@ class DefinedVariableRuleTest extends \PHPStan\Testing\RuleTestCase
 			[
 				'Variable $forVariableUsedAndThenDefined might not be defined.',
 				360,
+			],
+			[
+				'Undefined variable: $unknownVariablePassedToReset',
+				368,
+			],
+			[
+				'Undefined variable: $unknownVariablePassedToReset',
+				369,
 			],
 		]);
 	}

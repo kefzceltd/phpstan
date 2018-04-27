@@ -2,13 +2,22 @@
 
 namespace PHPStan\Type;
 
+use PHPStan\Analyser\Scope;
+use PHPStan\Reflection\ParametersAcceptor;
+use PHPStan\Reflection\TrivialParametersAcceptor;
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Constant\ConstantIntegerType;
+use PHPStan\Type\Constant\ConstantStringType;
+use PHPStan\Type\Traits\MaybeCallableTypeTrait;
 use PHPStan\Type\Traits\NonObjectTypeTrait;
+use PHPStan\Type\Traits\UndecidedBooleanTypeTrait;
 
 class ArrayType implements StaticResolvableType
 {
 
+	use MaybeCallableTypeTrait;
 	use NonObjectTypeTrait;
+	use UndecidedBooleanTypeTrait;
 
 	/** @var \PHPStan\Type\Type */
 	private $keyType;
@@ -19,15 +28,7 @@ class ArrayType implements StaticResolvableType
 	/** @var bool */
 	private $itemTypeInferredFromLiteralArray;
 
-	/** @var TrinaryLogic */
-	private $callable;
-
-	public function __construct(
-		Type $keyType,
-		Type $itemType,
-		bool $itemTypeInferredFromLiteralArray = false,
-		TrinaryLogic $callable = null
-	)
+	public function __construct(Type $keyType, Type $itemType, bool $itemTypeInferredFromLiteralArray = false)
 	{
 		if ($itemType instanceof UnionType && !TypeCombinator::isUnionTypesEnabled()) {
 			$itemType = new MixedType();
@@ -35,7 +36,11 @@ class ArrayType implements StaticResolvableType
 		$this->keyType = $keyType;
 		$this->itemType = $itemType;
 		$this->itemTypeInferredFromLiteralArray = $itemTypeInferredFromLiteralArray;
-		$this->callable = $callable ?? TrinaryLogic::createMaybe()->and((new StringType)->isSuperTypeOf($itemType));
+	}
+
+	public function getKeyType(): Type
+	{
+		return $this->keyType;
 	}
 
 	public function getItemType(): Type
@@ -52,15 +57,6 @@ class ArrayType implements StaticResolvableType
 			$this->keyType->getReferencedClasses(),
 			$this->getItemType()->getReferencedClasses()
 		);
-	}
-
-	public static function createDeepArrayType(Type $itemType, int $depth, bool $nullable): self
-	{
-		for ($i = 0; $i < $depth - 1; $i++) {
-			$itemType = new self(new MixedType(), $itemType, false);
-		}
-
-		return new self(new MixedType(), $itemType, $nullable);
 	}
 
 	public function isItemTypeInferredFromLiteralArray(): bool
@@ -96,17 +92,54 @@ class ArrayType implements StaticResolvableType
 		return TrinaryLogic::createNo();
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		if ($this->keyType instanceof MixedType) {
 			if ($this->itemType instanceof MixedType) {
 				return 'array';
 			}
 
-			return sprintf('array<%s>', $this->itemType->describe());
+			return sprintf('array<%s>', $this->itemType->describe($level));
 		}
 
-		return sprintf('array<%s, %s>', $this->keyType->describe(), $this->itemType->describe());
+		return sprintf('array<%s, %s>', $this->keyType->describe($level), $this->itemType->describe($level));
+	}
+
+	public function generalizeValues(): self
+	{
+		$itemType = $this->itemType;
+		if ($itemType instanceof ConstantType) {
+			$itemType = $itemType->generalize();
+		} elseif ($itemType instanceof UnionType) {
+			$itemType = TypeCombinator::union(...array_map(function (Type $type): Type {
+				if ($type instanceof ConstantType) {
+					return $type->generalize();
+				}
+
+				return $type;
+			}, $itemType->getTypes()));
+		}
+
+		return new self($this->keyType, $itemType);
+	}
+
+	public function intersectWith(self $otherArray): self
+	{
+		return new self(
+			TypeCombinator::union($this->getIterableKeyType(), $otherArray->getIterableKeyType()),
+			TypeCombinator::union($this->getIterableValueType(), $otherArray->getIterableValueType()),
+			$this->isItemTypeInferredFromLiteralArray() || $otherArray->isItemTypeInferredFromLiteralArray()
+		);
+	}
+
+	public function getKeysArray(): self
+	{
+		return new self(new IntegerType(), $this->keyType, true);
+	}
+
+	public function getValuesArray(): self
+	{
+		return new self(new IntegerType(), $this->itemType, true);
 	}
 
 	public function resolveStatic(string $className): Type
@@ -115,8 +148,7 @@ class ArrayType implements StaticResolvableType
 			return new self(
 				$this->keyType,
 				$this->getItemType()->resolveStatic($className),
-				$this->isItemTypeInferredFromLiteralArray(),
-				$this->callable
+				$this->isItemTypeInferredFromLiteralArray()
 			);
 		}
 
@@ -129,8 +161,7 @@ class ArrayType implements StaticResolvableType
 			return new self(
 				$this->keyType,
 				$this->getItemType()->changeBaseClass($className),
-				$this->isItemTypeInferredFromLiteralArray(),
-				$this->callable
+				$this->isItemTypeInferredFromLiteralArray()
 			);
 		}
 
@@ -157,23 +188,98 @@ class ArrayType implements StaticResolvableType
 		return TrinaryLogic::createYes();
 	}
 
-	public function getOffsetValueType(): Type
+	public function getOffsetValueType(Type $offsetType): Type
 	{
 		return $this->getItemType();
 	}
 
-	public function isCallable(): TrinaryLogic
+	public function setOffsetValueType(?Type $offsetType, Type $valueType): Type
 	{
-		return $this->callable;
+		if ($offsetType === null) {
+			$offsetType = new IntegerType();
+
+		} elseif ($offsetType instanceof ConstantType) {
+			$offsetType = $offsetType->generalize();
+		}
+
+		return new ArrayType(
+			TypeCombinator::union($this->keyType, $this->castToArrayKeyType($offsetType)),
+			TypeCombinator::union($this->itemType, $valueType),
+			$this->itemTypeInferredFromLiteralArray
+		);
 	}
 
+	public function isCallable(): TrinaryLogic
+	{
+		return TrinaryLogic::createMaybe()->and((new StringType())->isSuperTypeOf($this->itemType));
+	}
+
+	public function getCallableParametersAcceptor(Scope $scope): ParametersAcceptor
+	{
+		if ($this->isCallable()->no()) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
+		return new TrivialParametersAcceptor();
+	}
+
+	public function toNumber(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toString(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toInteger(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toFloat(): Type
+	{
+		return new ErrorType();
+	}
+
+	public function toArray(): Type
+	{
+		return $this;
+	}
+
+	protected function castToArrayKeyType(Type $offsetType): Type
+	{
+		if ($offsetType instanceof ConstantScalarType) {
+			/** @var int|string $offsetValue */
+			$offsetValue = key([$offsetType->getValue() => null]);
+			return is_int($offsetValue) ? new ConstantIntegerType($offsetValue) : new ConstantStringType($offsetValue);
+
+		}
+
+		if ($offsetType instanceof NullType) {
+			return new ConstantStringType('');
+
+		}
+
+		if ($offsetType instanceof IntegerType || $offsetType instanceof FloatType || $offsetType instanceof BooleanType) {
+			return new IntegerType();
+
+		}
+
+		return new UnionType([new IntegerType(), new StringType()]);
+	}
+
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self(
 			$properties['keyType'],
 			$properties['itemType'],
-			$properties['itemTypeInferredFromLiteralArray'],
-			$properties['callable']
+			$properties['itemTypeInferredFromLiteralArray']
 		);
 	}
 

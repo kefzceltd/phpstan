@@ -4,7 +4,9 @@ namespace PHPStan\Reflection\Annotations;
 
 use PHPStan\Analyser\Scope;
 use PHPStan\Broker\Broker;
+use PHPStan\Reflection\PassedByReference;
 use PHPStan\Reflection\Php\PhpMethodReflection;
+use PHPStan\Type\VerbosityLevel;
 
 class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\TestCase
 {
@@ -21,14 +23,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -43,14 +45,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'mixed',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -79,14 +81,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -101,14 +103,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'mixed',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -137,14 +139,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -159,14 +161,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'mixed',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -195,14 +197,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -217,14 +219,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'a',
 						'type' => 'int',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'b',
 						'type' => 'mixed',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -386,7 +388,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'args',
 						'type' => 'array',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => true,
 						'isVariadic' => false,
 					],
@@ -401,14 +403,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 					[
 						'name' => 'angle',
 						'type' => 'float',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
 					[
 						'name' => 'backgroundColor',
 						'type' => 'mixed',
-						'isPassedByReference' => false,
+						'passedByReference' => PassedByReference::createNo(),
 						'isOptional' => false,
 						'isVariadic' => false,
 					],
@@ -467,14 +469,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -489,7 +491,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -504,7 +506,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -519,7 +521,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -534,7 +536,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -549,14 +551,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -571,14 +573,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -593,14 +595,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -683,28 +685,28 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'int|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'c',
 							'type' => 'int',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'd',
 							'type' => 'int|null',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -719,28 +721,28 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'int|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'c',
 							'type' => 'int|null',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'd',
 							'type' => 'int|null',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
@@ -755,28 +757,28 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'OtherNamespace\Ipsum',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'OtherNamespace\Ipsum|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'c',
 							'type' => 'OtherNamespace\Ipsum',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'd',
 							'type' => 'OtherNamespace\Ipsum|null',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -791,28 +793,28 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'OtherNamespace\Ipsum|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'OtherNamespace\Ipsum|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'c',
 							'type' => 'OtherNamespace\Ipsum|null',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'd',
 							'type' => 'OtherNamespace\Ipsum|null',
-							'isPassedByReference' => true,
+							'passedByReference' => PassedByReference::createCreatesNewVariable(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
@@ -827,7 +829,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => true,
 						],
@@ -842,7 +844,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'int|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => true,
 						],
@@ -857,7 +859,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'OtherNamespace\Ipsum',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => true,
 						],
@@ -872,7 +874,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'OtherNamespace\Ipsum|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => true,
 						],
@@ -887,28 +889,28 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'a',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'b',
 							'type' => 'mixed',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'c',
 							'type' => 'bool|float|int|OtherNamespace\\Test|string',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'd',
 							'type' => 'bool|float|int|OtherNamespace\\Test|string|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => true,
 							'isVariadic' => false,
 						],
@@ -923,14 +925,14 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 						[
 							'name' => 'string',
 							'type' => 'string|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
 						[
 							'name' => 'object',
 							'type' => 'OtherNamespace\\Test|null',
-							'isPassedByReference' => false,
+							'passedByReference' => PassedByReference::createNo(),
 							'isOptional' => false,
 							'isVariadic' => false,
 						],
@@ -972,7 +974,7 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 			);
 			$this->assertSame(
 				$expectedMethodData['returnType'],
-				$method->getReturnType()->describe(),
+				$method->getReturnType()->describe(VerbosityLevel::value()),
 				sprintf('Return type of method %s::%s() does not match', $className, $methodName)
 			);
 			$this->assertSame(
@@ -997,11 +999,10 @@ class AnnotationsMethodsClassReflectionExtensionTest extends \PHPStan\Testing\Te
 				);
 				$this->assertSame(
 					$expectedMethodData['parameters'][$i]['type'],
-					$parameter->getType()->describe()
+					$parameter->getType()->describe(VerbosityLevel::value())
 				);
-				$this->assertSame(
-					$expectedMethodData['parameters'][$i]['isPassedByReference'],
-					$parameter->isPassedByReference()
+				$this->assertTrue(
+					$expectedMethodData['parameters'][$i]['passedByReference']->equals($parameter->passedByReference())
 				);
 				$this->assertSame(
 					$expectedMethodData['parameters'][$i]['isOptional'],

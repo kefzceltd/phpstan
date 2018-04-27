@@ -17,3 +17,26 @@ if (doFoo()) {
 foreach ($arrayOrFalse as $val) {
 
 }
+
+$arrayOrNull = [];
+if (doFoo()) {
+	$arrayOrNull = null;
+}
+
+if (empty($arrayOrNull)) {
+
+} elseif (empty($arrayOrFalse)) {
+} else {
+	foreach ($arrayOrNull as $val) {
+
+	}
+	foreach ($arrayOrFalse as $vla) {
+
+	}
+}
+
+/** @var mixed $mixed */
+$mixed = doFoo();
+foreach ($mixed as $val) {
+
+}

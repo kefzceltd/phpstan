@@ -2,11 +2,11 @@ includes:
 	- ../vendor/phpstan/phpstan-php-parser/extension.neon
 	- ../vendor/phpstan/phpstan-phpunit/extension.neon
 	- ../vendor/phpstan/phpstan-phpunit/rules.neon
-	- ../vendor/phpstan/phpstan-phpunit/strictRules.neon
 	- ../vendor/phpstan/phpstan-strict-rules/rules.neon
 parameters:
 	bootstrap: %rootDir%/tests/phpstan-bootstrap.php
 	excludes_analyse:
+		- %rootDir%/src/Reflection/SignatureMap/functions/*
 		- %rootDir%/tests/*/data/*
 		- %rootDir%/tests/PHPStan/Analyser/traits/*
 		- %rootDir%/tests/notAutoloaded/*
@@ -14,9 +14,26 @@ parameters:
 		- '#Constant PHPSTAN_TEST_CONSTANT not found#'
 		- '#Strict comparison using === between PhpParser\\Node\\Expr\\ArrayItem and null will always evaluate to false#'
 		- '#Dynamic call to static method PHPUnit\\Framework\\#'
+		- '#expects string, PhpParser\\Node\\Expr\\Error\|string given#'
 	tmpDir: %rootDir%/tmp
 services:
 	-
 		class: PHPStan\Build\ServiceLocatorDynamicReturnTypeExtension
 		tags:
 			- phpstan.broker.dynamicMethodReturnTypeExtension
+
+	scopeIsInClass:
+		class: PHPStan\Build\ScopeIsInClassTypeSpecifyingExtension
+		arguments:
+			isInMethodName: isInClass
+			removeNullMethodName: getClassReflection
+		tags:
+			- phpstan.typeSpecifier.methodTypeSpecifyingExtension
+
+	scopeIsInTrait:
+		class: PHPStan\Build\ScopeIsInClassTypeSpecifyingExtension
+		arguments:
+			isInMethodName: isInTrait
+			removeNullMethodName: getTraitReflection
+		tags:
+			- phpstan.typeSpecifier.methodTypeSpecifyingExtension

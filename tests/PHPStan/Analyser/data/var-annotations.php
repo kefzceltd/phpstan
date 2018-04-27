@@ -25,7 +25,7 @@ class Foo
 		/** @var \AnotherNamespace\Bar $barObject */
 		$barObject = getFoo();
 
-		/** @var $mixed */
+		/** @var mixed $mixed */
 		$mixed = getFoo();
 
 		/** @var array $array */
@@ -41,7 +41,7 @@ class Foo
 		$self = getFoo();
 
 		/** @var int $invalidInt */
-		$invalidInteger = 1.0;
+		$invalidInteger = $this->getFloat();
 
 		/** @var static $static */
 		$static = getFoo();
@@ -69,7 +69,7 @@ class Foo
 		/** @var \AnotherNamespace\Bar */
 		$barObject = getFoo();
 
-		/** @var */
+		/** @var mixed */
 		$mixed = getFoo();
 
 		/** @var array */
@@ -91,6 +91,11 @@ class Foo
 		$static = getFoo();
 
 		die;
+	}
+
+	public function getFloat(): float
+	{
+		return 1.0;
 	}
 
 }

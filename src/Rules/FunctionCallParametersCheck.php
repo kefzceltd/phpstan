@@ -9,7 +9,7 @@ use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Type\ArrayType;
 use PHPStan\Type\IterableType;
 use PHPStan\Type\MixedType;
-use PHPStan\Type\StringType;
+use PHPStan\Type\VerbosityLevel;
 use PHPStan\Type\VoidType;
 
 class FunctionCallParametersCheck
@@ -136,12 +136,12 @@ class FunctionCallParametersCheck
 
 				$parameter = $parameters[count($parameters) - 1];
 				$parameterType = $parameter->getType();
-				if ($parameterType instanceof ArrayType) {
-					if (!$argument->unpack) {
-						$parameterType = $parameterType->getItemType();
-					}
-				} else {
+				if (!($parameterType instanceof ArrayType)) {
 					break;
+				}
+
+				if (!$argument->unpack) {
+					$parameterType = $parameterType->getItemType();
 				}
 			} else {
 				$parameter = $parameters[$i];
@@ -169,36 +169,35 @@ class FunctionCallParametersCheck
 
 			if (
 				$this->checkArgumentTypes
+				&& !$parameter->passedByReference()->createsNewVariable()
 				&& !$this->ruleLevelHelper->accepts($parameterType, $argumentValueType)
 				&& ($secondAccepts === null || !$secondAccepts)
-				&& (
-					!($parameterType instanceof StringType)
-					|| !$argumentValueType->hasMethod('__toString')
-				)
 			) {
 				$errors[] = sprintf(
 					$messages[6],
 					$i + 1,
 					sprintf('%s$%s', $parameter->isVariadic() ? '...' : '', $parameter->getName()),
-					$parameterType->describe(),
-					$argumentValueType->describe()
+					$parameterType->describe(VerbosityLevel::typeOnly()),
+					$argumentValueType->describe(VerbosityLevel::typeOnly())
 				);
 			}
 
 			if (
-				$this->checkArgumentsPassedByReference
-				&& $parameter->isPassedByReference()
-				&& !$argument->value instanceof \PhpParser\Node\Expr\Variable
-				&& !$argument->value instanceof \PhpParser\Node\Expr\ArrayDimFetch
-				&& !$argument->value instanceof \PhpParser\Node\Expr\PropertyFetch
-				&& !$argument->value instanceof \PhpParser\Node\Expr\StaticPropertyFetch
+				!$this->checkArgumentsPassedByReference
+				|| !$parameter->passedByReference()->yes()
+				|| $argument->value instanceof \PhpParser\Node\Expr\Variable
+				|| $argument->value instanceof \PhpParser\Node\Expr\ArrayDimFetch
+				|| $argument->value instanceof \PhpParser\Node\Expr\PropertyFetch
+				|| $argument->value instanceof \PhpParser\Node\Expr\StaticPropertyFetch
 			) {
-				$errors[] = sprintf(
-					$messages[8],
-					$i + 1,
-					sprintf('%s$%s', $parameter->isVariadic() ? '...' : '', $parameter->getName())
-				);
+				continue;
 			}
+
+			$errors[] = sprintf(
+				$messages[8],
+				$i + 1,
+				sprintf('%s$%s', $parameter->isVariadic() ? '...' : '', $parameter->getName())
+			);
 		}
 
 		return $errors;

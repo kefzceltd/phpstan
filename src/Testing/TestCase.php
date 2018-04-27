@@ -2,6 +2,9 @@
 
 namespace PHPStan\Testing;
 
+use PhpParser\PrettyPrinter\Standard;
+use PHPStan\Analyser\TypeSpecifier;
+use PHPStan\Analyser\TypeSpecifierFactory;
 use PHPStan\Broker\Broker;
 use PHPStan\Broker\BrokerFactory;
 use PHPStan\Cache\Cache;
@@ -22,15 +25,14 @@ use PHPStan\Reflection\Php\PhpMethodReflection;
 use PHPStan\Reflection\Php\PhpMethodReflectionFactory;
 use PHPStan\Reflection\Php\UniversalObjectCratesClassReflectionExtension;
 use PHPStan\Reflection\PhpDefect\PhpDefectClassReflectionExtension;
+use PHPStan\Reflection\SignatureMap\SignatureMapProvider;
 use PHPStan\Type\FileTypeMapper;
 use PHPStan\Type\Type;
 
 abstract class TestCase extends \PHPUnit\Framework\TestCase
 {
 
-	/**
-	 * @var \Nette\DI\Container
-	 */
+	/** @var \Nette\DI\Container */
 	private static $container;
 
 	public function getContainer(): \Nette\DI\Container
@@ -67,6 +69,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 		$parser = $this->getParser();
 		$cache = new Cache(new MemoryCacheStorage());
 		$methodReflectionFactory = new class($parser, $functionCallStatementFinder, $cache) implements PhpMethodReflectionFactory {
+
 			/** @var \PHPStan\Parser\Parser */
 			private $parser;
 
@@ -90,11 +93,18 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 				$this->cache = $cache;
 			}
 
+			/**
+			 * @param ClassReflection $declaringClass
+			 * @param \ReflectionMethod $reflection
+			 * @param Type[] $phpDocParameterTypes
+			 * @param null|Type $phpDocReturnType
+			 * @return PhpMethodReflection
+			 */
 			public function create(
 				ClassReflection $declaringClass,
 				\ReflectionMethod $reflection,
 				array $phpDocParameterTypes,
-				Type $phpDocReturnType = null
+				?Type $phpDocReturnType
 			): PhpMethodReflection
 			{
 				return new PhpMethodReflection(
@@ -111,9 +121,12 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 		};
 		$phpDocStringResolver = $this->getContainer()->getByType(PhpDocStringResolver::class);
 		$fileTypeMapper = new FileTypeMapper($parser, $phpDocStringResolver, $cache);
+		$annotationsMethodsClassReflectionExtension = new AnnotationsMethodsClassReflectionExtension($fileTypeMapper);
 		$annotationsPropertiesClassReflectionExtension = new AnnotationsPropertiesClassReflectionExtension($fileTypeMapper);
-		$phpExtension = new PhpClassReflectionExtension($methodReflectionFactory, $fileTypeMapper, new AnnotationsMethodsClassReflectionExtension($fileTypeMapper), $annotationsPropertiesClassReflectionExtension);
+		$signatureMapProvider = $this->getContainer()->getByType(SignatureMapProvider::class);
+		$phpExtension = new PhpClassReflectionExtension($methodReflectionFactory, $fileTypeMapper, $annotationsMethodsClassReflectionExtension, $annotationsPropertiesClassReflectionExtension, $signatureMapProvider);
 		$functionReflectionFactory = new class($this->getParser(), $functionCallStatementFinder, $cache) implements FunctionReflectionFactory {
+
 			/** @var \PHPStan\Parser\Parser */
 			private $parser;
 
@@ -134,10 +147,16 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 				$this->cache = $cache;
 			}
 
+			/**
+			 * @param \ReflectionFunction $function
+			 * @param Type[] $phpDocParameterTypes
+			 * @param null|Type $phpDocReturnType
+			 * @return PhpFunctionReflection
+			 */
 			public function create(
 				\ReflectionFunction $function,
 				array $phpDocParameterTypes,
-				Type $phpDocReturnType = null
+				?Type $phpDocReturnType
 			): PhpFunctionReflection
 			{
 				return new PhpFunctionReflection(
@@ -160,20 +179,78 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
 		$broker = new Broker(
 			[
 				$phpExtension,
-				$annotationsPropertiesClassReflectionExtension,
-				new UniversalObjectCratesClassReflectionExtension([\stdClass::class]),
 				new PhpDefectClassReflectionExtension($this->getContainer()->getByType(TypeStringResolver::class)),
+				new UniversalObjectCratesClassReflectionExtension([\stdClass::class]),
+				$annotationsPropertiesClassReflectionExtension,
 			],
-			[$phpExtension],
-			$dynamicMethodReturnTypeExtensions,
-			$dynamicStaticMethodReturnTypeExtensions,
-			$tagToService($this->getContainer()->findByTag(BrokerFactory::DYNAMIC_FUNCTION_RETURN_TYPE_EXTENSION_TAG)),
+			[
+				$phpExtension,
+				$annotationsMethodsClassReflectionExtension,
+			],
+			array_merge($dynamicMethodReturnTypeExtensions, $this->getDynamicMethodReturnTypeExtensions()),
+			array_merge($dynamicStaticMethodReturnTypeExtensions, $this->getDynamicStaticMethodReturnTypeExtensions()),
+			array_merge($tagToService($this->getContainer()->findByTag(BrokerFactory::DYNAMIC_FUNCTION_RETURN_TYPE_EXTENSION_TAG)), $this->getDynamicFunctionReturnTypeExtensions()),
 			$functionReflectionFactory,
-			new FileTypeMapper($this->getParser(), $phpDocStringResolver, $cache)
+			new FileTypeMapper($this->getParser(), $phpDocStringResolver, $cache),
+			$signatureMapProvider,
+			$this->getContainer()->parameters['universalObjectCratesClasses']
 		);
 		$methodReflectionFactory->broker = $broker;
 
 		return $broker;
+	}
+
+	/**
+	 * @return \PHPStan\Type\DynamicMethodReturnTypeExtension[]
+	 */
+	public function getDynamicMethodReturnTypeExtensions(): array
+	{
+		return [];
+	}
+
+	/**
+	 * @return \PHPStan\Type\DynamicStaticMethodReturnTypeExtension[]
+	 */
+	public function getDynamicStaticMethodReturnTypeExtensions(): array
+	{
+		return [];
+	}
+
+	/**
+	 * @return \PHPStan\Type\DynamicFunctionReturnTypeExtension[]
+	 */
+	public function getDynamicFunctionReturnTypeExtensions(): array
+	{
+		return [];
+	}
+
+	/**
+	 * @param \PhpParser\PrettyPrinter\Standard $printer
+	 * @param \PHPStan\Broker\Broker $broker
+	 * @param \PHPStan\Type\MethodTypeSpecifyingExtension[] $methodTypeSpecifyingExtensions
+	 * @param \PHPStan\Type\StaticMethodTypeSpecifyingExtension[] $staticMethodTypeSpecifyingExtensions
+	 * @return \PHPStan\Analyser\TypeSpecifier
+	 */
+	public function createTypeSpecifier(
+		Standard $printer,
+		Broker $broker,
+		array $methodTypeSpecifyingExtensions = [],
+		array $staticMethodTypeSpecifyingExtensions = []
+	): TypeSpecifier
+	{
+		$tagToService = function (array $tags) {
+			return array_map(function (string $serviceName) {
+				return $this->getContainer()->getService($serviceName);
+			}, array_keys($tags));
+		};
+
+		return new TypeSpecifier(
+			$printer,
+			$broker,
+			$tagToService($this->getContainer()->findByTag(TypeSpecifierFactory::FUNCTION_TYPE_SPECIFYING_EXTENSION_TAG)),
+			$methodTypeSpecifyingExtensions,
+			$staticMethodTypeSpecifyingExtensions
+		);
 	}
 
 	public function getFileHelper(): FileHelper

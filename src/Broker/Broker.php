@@ -7,6 +7,10 @@ use PHPStan\PhpDoc\Tag\ParamTag;
 use PHPStan\Reflection\BrokerAwareExtension;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Reflection\FunctionReflectionFactory;
+use PHPStan\Reflection\Native\NativeFunctionReflection;
+use PHPStan\Reflection\Native\NativeParameterReflection;
+use PHPStan\Reflection\SignatureMap\ParameterSignature;
+use PHPStan\Reflection\SignatureMap\SignatureMapProvider;
 use PHPStan\Type\FileTypeMapper;
 use PHPStan\Type\Type;
 use ReflectionClass;
@@ -26,10 +30,10 @@ class Broker
 	/** @var \PHPStan\Type\DynamicStaticMethodReturnTypeExtension[] */
 	private $dynamicStaticMethodReturnTypeExtensions = [];
 
-	/** @var \PHPStan\Type\DynamicMethodReturnTypeExtension[] */
+	/** @var \PHPStan\Type\DynamicMethodReturnTypeExtension[][] */
 	private $dynamicMethodReturnTypeExtensionsByClass;
 
-	/** @var \PHPStan\Type\DynamicStaticMethodReturnTypeExtension[] */
+	/** @var \PHPStan\Type\DynamicStaticMethodReturnTypeExtension[][] */
 	private $dynamicStaticMethodReturnTypeExtensionsByClass;
 
 	/** @var \PHPStan\Type\DynamicFunctionReturnTypeExtension[] */
@@ -44,14 +48,26 @@ class Broker
 	/** @var \PHPStan\Type\FileTypeMapper */
 	private $fileTypeMapper;
 
+	/** @var \PHPStan\Reflection\SignatureMap\SignatureMapProvider */
+	private $signatureMapProvider;
+
+	/** @var string[] */
+	private $universalObjectCratesClasses;
+
 	/** @var \PHPStan\Reflection\FunctionReflection[] */
 	private $functionReflections = [];
+
+	/** @var \PHPStan\Reflection\Php\PhpFunctionReflection[] */
+	private $customFunctionReflections = [];
 
 	/** @var null|self */
 	private static $instance;
 
 	/** @var bool[] */
 	private $hasClassCache;
+
+	/** @var NativeFunctionReflection[] */
+	private static $functionMap = [];
 
 	/**
 	 * @param \PHPStan\Reflection\PropertiesClassReflectionExtension[] $propertiesClassReflectionExtensions
@@ -61,6 +77,8 @@ class Broker
 	 * @param \PHPStan\Type\DynamicFunctionReturnTypeExtension[] $dynamicFunctionReturnTypeExtensions
 	 * @param \PHPStan\Reflection\FunctionReflectionFactory $functionReflectionFactory
 	 * @param \PHPStan\Type\FileTypeMapper $fileTypeMapper
+	 * @param \PHPStan\Reflection\SignatureMap\SignatureMapProvider $signatureMapProvider
+	 * @param string[] $universalObjectCratesClasses
 	 */
 	public function __construct(
 		array $propertiesClassReflectionExtensions,
@@ -69,15 +87,19 @@ class Broker
 		array $dynamicStaticMethodReturnTypeExtensions,
 		array $dynamicFunctionReturnTypeExtensions,
 		FunctionReflectionFactory $functionReflectionFactory,
-		FileTypeMapper $fileTypeMapper
+		FileTypeMapper $fileTypeMapper,
+		SignatureMapProvider $signatureMapProvider,
+		array $universalObjectCratesClasses
 	)
 	{
 		$this->propertiesClassReflectionExtensions = $propertiesClassReflectionExtensions;
 		$this->methodsClassReflectionExtensions = $methodsClassReflectionExtensions;
 		foreach (array_merge($propertiesClassReflectionExtensions, $methodsClassReflectionExtensions, $dynamicMethodReturnTypeExtensions, $dynamicStaticMethodReturnTypeExtensions, $dynamicFunctionReturnTypeExtensions) as $extension) {
-			if ($extension instanceof BrokerAwareExtension) {
-				$extension->setBroker($this);
+			if (!($extension instanceof BrokerAwareExtension)) {
+				continue;
 			}
+
+			$extension->setBroker($this);
 		}
 
 		$this->dynamicMethodReturnTypeExtensions = $dynamicMethodReturnTypeExtensions;
@@ -89,6 +111,8 @@ class Broker
 
 		$this->functionReflectionFactory = $functionReflectionFactory;
 		$this->fileTypeMapper = $fileTypeMapper;
+		$this->signatureMapProvider = $signatureMapProvider;
+		$this->universalObjectCratesClasses = $universalObjectCratesClasses;
 
 		self::$instance = $this;
 	}
@@ -99,6 +123,14 @@ class Broker
 			throw new \PHPStan\ShouldNotHappenException();
 		}
 		return self::$instance;
+	}
+
+	/**
+	 * @return string[]
+	 */
+	public function getUniversalObjectCratesClasses(): array
+	{
+		return $this->universalObjectCratesClasses;
 	}
 
 	/**
@@ -144,7 +176,7 @@ class Broker
 	}
 
 	/**
-	 * @param \PHPStan\Type\DynamicMethodReturnTypeExtension[]|\PHPStan\Type\DynamicStaticMethodReturnTypeExtension[] $extensions
+	 * @param \PHPStan\Type\DynamicMethodReturnTypeExtension[][]|\PHPStan\Type\DynamicStaticMethodReturnTypeExtension[][] $extensions
 	 * @param string $className
 	 * @return mixed[]
 	 */
@@ -239,23 +271,31 @@ class Broker
 
 		$lowerCasedFunctionName = strtolower($functionName);
 		if (!isset($this->functionReflections[$lowerCasedFunctionName])) {
-			$reflectionFunction = new \ReflectionFunction($lowerCasedFunctionName);
-			$phpDocParameterTags = [];
-			$phpDocReturnTag = null;
-			if ($reflectionFunction->getFileName() !== false && $reflectionFunction->getDocComment() !== false) {
-				$fileName = $reflectionFunction->getFileName();
-				$docComment = $reflectionFunction->getDocComment();
-				$resolvedPhpDoc = $this->fileTypeMapper->getResolvedPhpDoc($fileName, null, $docComment);
-				$phpDocParameterTags = $resolvedPhpDoc->getParamTags();
-				$phpDocReturnTag = $resolvedPhpDoc->getReturnTag();
+			if (isset(self::$functionMap[$lowerCasedFunctionName])) {
+				return $this->functionReflections[$lowerCasedFunctionName] = self::$functionMap[$lowerCasedFunctionName];
 			}
-			$this->functionReflections[$lowerCasedFunctionName] = $this->functionReflectionFactory->create(
-				$reflectionFunction,
-				array_map(function (ParamTag $paramTag): Type {
-					return $paramTag->getType();
-				}, $phpDocParameterTags),
-				$phpDocReturnTag !== null ? $phpDocReturnTag->getType() : null
-			);
+
+			if ($this->signatureMapProvider->hasFunctionSignature($lowerCasedFunctionName)) {
+				$functionSignature = $this->signatureMapProvider->getFunctionSignature($lowerCasedFunctionName, null);
+				$functionReflection = new NativeFunctionReflection(
+					$lowerCasedFunctionName,
+					array_map(function (ParameterSignature $parameterSignature): NativeParameterReflection {
+						return new NativeParameterReflection(
+							$parameterSignature->getName(),
+							$parameterSignature->isOptional(),
+							$parameterSignature->getType(),
+							$parameterSignature->passedByReference(),
+							$parameterSignature->isVariadic()
+						);
+					}, $functionSignature->getParameters()),
+					$functionSignature->isVariadic(),
+					$functionSignature->getReturnType()
+				);
+				self::$functionMap[$lowerCasedFunctionName] = $functionReflection;
+				$this->functionReflections[$lowerCasedFunctionName] = $functionReflection;
+			} else {
+				$this->functionReflections[$lowerCasedFunctionName] = $this->getCustomFunction($nameNode, $scope);
+			}
 		}
 
 		return $this->functionReflections[$lowerCasedFunctionName];
@@ -264,6 +304,54 @@ class Broker
 	public function hasFunction(\PhpParser\Node\Name $nameNode, ?Scope $scope): bool
 	{
 		return $this->resolveFunctionName($nameNode, $scope) !== null;
+	}
+
+	public function hasCustomFunction(\PhpParser\Node\Name $nameNode, ?Scope $scope): bool
+	{
+		$functionName = $this->resolveFunctionName($nameNode, $scope);
+		if ($functionName === null) {
+			return false;
+		}
+
+		$lowerCasedFunctionName = strtolower($functionName);
+
+		return !$this->signatureMapProvider->hasFunctionSignature($lowerCasedFunctionName);
+	}
+
+	public function getCustomFunction(\PhpParser\Node\Name $nameNode, ?Scope $scope): \PHPStan\Reflection\Php\PhpFunctionReflection
+	{
+		if (!$this->hasCustomFunction($nameNode, $scope)) {
+			throw new \PHPStan\Broker\FunctionNotFoundException((string) $nameNode);
+		}
+
+		/** @var string $functionName */
+		$functionName = $this->resolveFunctionName($nameNode, $scope);
+		$lowerCasedFunctionName = strtolower($functionName);
+		if (isset($this->customFunctionReflections[$lowerCasedFunctionName])) {
+			return $this->customFunctionReflections[$lowerCasedFunctionName];
+		}
+
+		$reflectionFunction = new \ReflectionFunction($functionName);
+		$phpDocParameterTags = [];
+		$phpDocReturnTag = null;
+		if ($reflectionFunction->getFileName() !== false && $reflectionFunction->getDocComment() !== false) {
+			$fileName = $reflectionFunction->getFileName();
+			$docComment = $reflectionFunction->getDocComment();
+			$resolvedPhpDoc = $this->fileTypeMapper->getResolvedPhpDoc($fileName, null, null, $docComment);
+			$phpDocParameterTags = $resolvedPhpDoc->getParamTags();
+			$phpDocReturnTag = $resolvedPhpDoc->getReturnTag();
+		}
+
+		$functionReflection = $this->functionReflectionFactory->create(
+			$reflectionFunction,
+			array_map(function (ParamTag $paramTag): Type {
+				return $paramTag->getType();
+			}, $phpDocParameterTags),
+			$phpDocReturnTag !== null ? $phpDocReturnTag->getType() : null
+		);
+		$this->customFunctionReflections[$lowerCasedFunctionName] = $functionReflection;
+
+		return $functionReflection;
 	}
 
 	public function resolveFunctionName(\PhpParser\Node\Name $nameNode, ?Scope $scope): ?string

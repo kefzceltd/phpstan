@@ -20,6 +20,18 @@ class CallMethodsOnPossiblyNullRuleTest extends \PHPStan\Testing\RuleTestCase
 				11,
 			],
 			[
+				'Calling method find() on possibly null value of type CallingMethodOnPossiblyNullable\NullCoalesce|null.',
+				58,
+			],
+			[
+				'Calling method find() on possibly null value of type CallingMethodOnPossiblyNullable\NullCoalesce|null.',
+				60,
+			],
+			[
+				'Calling method find() on possibly null value of type CallingMethodOnPossiblyNullable\NullCoalesce|null.',
+				64,
+			],
+			[
 				'Calling method doFoo() on possibly null value of type CallingMethodOnPossiblyNullable\IssetIssue|null.',
 				92,
 			],
@@ -30,6 +42,10 @@ class CallMethodsOnPossiblyNullRuleTest extends \PHPStan\Testing\RuleTestCase
 			[
 				'Calling method doFoo() on possibly null value of type CallingMethodOnPossiblyNullable\IssetIssue|null.',
 				94,
+			],
+			[
+				'Calling method add() on possibly null value of type DateTime|null.',
+				128,
 			],
 		]);
 	}

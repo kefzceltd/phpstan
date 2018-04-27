@@ -5,6 +5,7 @@ namespace PHPStan\Type;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
+use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\PropertyReflection;
 use PHPStan\TrinaryLogic;
 
@@ -20,7 +21,7 @@ interface Type
 
 	public function isSuperTypeOf(Type $type): TrinaryLogic;
 
-	public function describe(): string;
+	public function describe(VerbosityLevel $level): string;
 
 	public function canAccessProperties(): TrinaryLogic;
 
@@ -48,12 +49,32 @@ interface Type
 
 	public function isOffsetAccessible(): TrinaryLogic;
 
-	public function getOffsetValueType(): Type;
+	public function getOffsetValueType(Type $offsetType): Type;
+
+	public function setOffsetValueType(?Type $offsetType, Type $valueType): Type;
 
 	public function isCallable(): TrinaryLogic;
 
+	public function getCallableParametersAcceptor(Scope $scope): ParametersAcceptor;
+
 	public function isCloneable(): TrinaryLogic;
 
+	public function toBoolean(): BooleanType;
+
+	public function toNumber(): Type;
+
+	public function toInteger(): Type;
+
+	public function toFloat(): Type;
+
+	public function toString(): Type;
+
+	public function toArray(): Type;
+
+	/**
+	 * @param mixed[] $properties
+	 * @return self
+	 */
 	public static function __set_state(array $properties): self;
 
 }

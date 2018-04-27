@@ -2,6 +2,12 @@
 
 namespace PHPStan\Type;
 
+use PHPStan\Type\Constant\ConstantArrayType;
+use PHPStan\Type\Constant\ConstantBooleanType;
+use PHPStan\Type\Constant\ConstantFloatType;
+use PHPStan\Type\Constant\ConstantIntegerType;
+use PHPStan\Type\Constant\ConstantStringType;
+
 class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 {
 
@@ -86,7 +92,7 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 	): void
 	{
 		$result = TypeCombinator::addNull($type);
-		$this->assertSame($expectedTypeDescription, $result->describe());
+		$this->assertSame($expectedTypeDescription, $result->describe(VerbosityLevel::value()));
 		$this->assertInstanceOf($expectedTypeClass, $result);
 	}
 
@@ -103,7 +109,7 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 	): void
 	{
 		$result = TypeCombinator::union($type, new NullType());
-		$this->assertSame($expectedTypeDescription, $result->describe());
+		$this->assertSame($expectedTypeDescription, $result->describe(VerbosityLevel::value()));
 		$this->assertInstanceOf($expectedTypeClass, $result);
 	}
 
@@ -198,7 +204,7 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 	): void
 	{
 		$result = TypeCombinator::removeNull($type);
-		$this->assertSame($expectedTypeDescription, $result->describe());
+		$this->assertSame($expectedTypeDescription, $result->describe(VerbosityLevel::value()));
 		$this->assertInstanceOf($expectedTypeClass, $result);
 	}
 
@@ -223,10 +229,10 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 			],
 			[
 				[
-					new TrueBooleanType(),
-					new FalseBooleanType(),
+					new ConstantBooleanType(true),
+					new ConstantBooleanType(false),
 				],
-				TrueOrFalseBooleanType::class,
+				BooleanType::class,
 				'bool',
 			],
 			[
@@ -254,7 +260,7 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 						new StringType(),
 						new IntegerType(),
 					]),
-					new TrueBooleanType(),
+					new ConstantBooleanType(true),
 				],
 				UnionType::class,
 				'int|string|true',
@@ -317,10 +323,10 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 			],
 			[
 				[
-						new UnionType([
-						new TrueBooleanType(),
+					new UnionType([
+						new ConstantBooleanType(true),
 						new IntegerType(),
-						]),
+					]),
 					new ArrayType(new MixedType(), new StringType()),
 				],
 				UnionType::class,
@@ -529,6 +535,196 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 				UnionType::class,
 				'callable|RecursionCallable\Foo',
 			],
+			[
+				[
+					new IntegerType(),
+					new ConstantIntegerType(1),
+				],
+				IntegerType::class,
+				'int',
+			],
+			[
+				[
+					new ConstantIntegerType(1),
+					new ConstantIntegerType(1),
+				],
+				ConstantIntegerType::class,
+				'1',
+			],
+			[
+				[
+					new ConstantIntegerType(1),
+					new ConstantIntegerType(2),
+				],
+				UnionType::class,
+				'1|2',
+			],
+			[
+				[
+					new FloatType(),
+					new ConstantFloatType(1.0),
+				],
+				FloatType::class,
+				'float',
+			],
+			[
+				[
+					new ConstantFloatType(1.0),
+					new ConstantFloatType(1.0),
+				],
+				ConstantFloatType::class,
+				'1.0',
+			],
+			[
+				[
+					new ConstantFloatType(1.0),
+					new ConstantFloatType(2.0),
+				],
+				UnionType::class,
+				'1.0|2.0',
+			],
+			[
+				[
+					new StringType(),
+					new ConstantStringType('A'),
+				],
+				StringType::class,
+				'string',
+			],
+			[
+				[
+					new ConstantStringType('A'),
+					new ConstantStringType('A'),
+				],
+				ConstantStringType::class,
+				'\'A\'',
+			],
+			[
+				[
+					new ConstantStringType('A'),
+					new ConstantStringType('B'),
+				],
+				UnionType::class,
+				'\'A\'|\'B\'',
+			],
+			[
+				[
+					new BooleanType(),
+					new ConstantBooleanType(true),
+				],
+				BooleanType::class,
+				'bool',
+			],
+			[
+				[
+					new ConstantBooleanType(true),
+					new ConstantBooleanType(true),
+				],
+				ConstantBooleanType::class,
+				'true',
+			],
+			[
+				[
+					new ConstantBooleanType(true),
+					new ConstantBooleanType(false),
+				],
+				BooleanType::class,
+				'bool',
+			],
+			[
+				[
+					new ObjectType(\Closure::class),
+					new ClosureType([], new MixedType(), false),
+				],
+				ObjectType::class,
+				'Closure',
+			],
+			[
+				[
+					new ClosureType([], new MixedType(), false),
+					new CallableType(),
+				],
+				CallableType::class,
+				'callable',
+			],
+			[
+				// same keys - can remain ConstantArrayType
+				[
+					new ConstantArrayType([
+						new ConstantStringType('foo'),
+						new ConstantStringType('bar'),
+					], [
+						new ObjectType(\DateTimeImmutable::class),
+						new IntegerType(),
+					]),
+					new ConstantArrayType([
+						new ConstantStringType('foo'),
+						new ConstantStringType('bar'),
+					], [
+						new NullType(),
+						new StringType(),
+					]),
+				],
+				ConstantArrayType::class,
+				'array(\'foo\' => DateTimeImmutable|null, \'bar\' => int|string)',
+			],
+			[
+				[
+					new ConstantArrayType([
+						new ConstantStringType('foo'),
+						new ConstantStringType('bar'),
+					], [
+						new ObjectType(\DateTimeImmutable::class),
+						new IntegerType(),
+					]),
+					new ConstantArrayType([
+						new ConstantStringType('foo'),
+					], [
+						new NullType(),
+					]),
+				],
+				ArrayType::class,
+				'array(\'foo\' => DateTimeImmutable|null)',
+			],
+			[
+				[
+					new ConstantArrayType([
+						new ConstantStringType('foo'),
+						new ConstantStringType('bar'),
+					], [
+						new ObjectType(\DateTimeImmutable::class),
+						new IntegerType(),
+					]),
+					new ConstantArrayType([
+						new ConstantStringType('foo'),
+						new ConstantStringType('bar'),
+						new ConstantStringType('baz'),
+					], [
+						new NullType(),
+						new StringType(),
+						new IntegerType(),
+					]),
+				],
+				ArrayType::class,
+				'array(\'foo\' => DateTimeImmutable|null, \'bar\' => int|string)',
+			],
+			[
+				[
+					new ArrayType(
+						new IntegerType(),
+						new ObjectType(\stdClass::class)
+					),
+					new ConstantArrayType([
+						new ConstantStringType('foo'),
+						new ConstantStringType('bar'),
+					], [
+						new ObjectType(\DateTimeImmutable::class),
+						new IntegerType(),
+					]),
+				],
+				ArrayType::class,
+				'array<\'bar\'|\'foo\'|int, DateTimeImmutable|int|stdClass>',
+			],
 		];
 	}
 
@@ -544,9 +740,20 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 		string $expectedTypeDescription
 	): void
 	{
-		$result = TypeCombinator::union(...$types);
-		$this->assertSame($expectedTypeDescription, $result->describe());
-		$this->assertInstanceOf($expectedTypeClass, $result);
+		$actualType = TypeCombinator::union(...$types);
+
+		$this->assertSame(
+			$expectedTypeDescription,
+			$actualType->describe(VerbosityLevel::value()),
+			sprintf('union(%s)', implode(', ', array_map(
+				function (Type $type): string {
+					return $type->describe(VerbosityLevel::value());
+				},
+				$types
+			)))
+		);
+
+		$this->assertInstanceOf($expectedTypeClass, $actualType);
 	}
 
 	/**
@@ -562,7 +769,7 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 	): void
 	{
 		$result = TypeCombinator::union(...array_reverse($types));
-		$this->assertSame($expectedTypeDescription, $result->describe());
+		$this->assertSame($expectedTypeDescription, $result->describe(VerbosityLevel::value()));
 		$this->assertInstanceOf($expectedTypeClass, $result);
 	}
 
@@ -620,10 +827,10 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 			],
 			[
 				[
-					new TrueBooleanType(),
-					new TrueOrFalseBooleanType(),
+					new ConstantBooleanType(true),
+					new BooleanType(),
 				],
-				TrueBooleanType::class,
+				ConstantBooleanType::class,
 				'true',
 			],
 			[
@@ -702,7 +909,7 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 	{
 		$result = TypeCombinator::intersect(...$types);
 		$this->assertInstanceOf($expectedTypeClass, $result);
-		$this->assertSame($expectedTypeDescription, $result->describe());
+		$this->assertSame($expectedTypeDescription, $result->describe(VerbosityLevel::value()));
 	}
 
 	/**
@@ -719,24 +926,24 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 	{
 		$result = TypeCombinator::intersect(...array_reverse($types));
 		$this->assertInstanceOf($expectedTypeClass, $result);
-		$this->assertSame($expectedTypeDescription, $result->describe());
+		$this->assertSame($expectedTypeDescription, $result->describe(VerbosityLevel::value()));
 	}
 
 	public function dataRemove(): array
 	{
 		return [
 			[
-				new TrueBooleanType(),
-				new TrueBooleanType(),
+				new ConstantBooleanType(true),
+				new ConstantBooleanType(true),
 				NeverType::class,
 				'*NEVER*',
 			],
 			[
 				new UnionType([
 					new IntegerType(),
-					new TrueBooleanType(),
+					new ConstantBooleanType(true),
 				]),
-				new TrueBooleanType(),
+				new ConstantBooleanType(true),
 				IntegerType::class,
 				'int',
 			],
@@ -770,80 +977,80 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 				'array<string>|ArrayObject',
 			],
 			[
-				new TrueBooleanType(),
-				new FalseBooleanType(),
-				TrueBooleanType::class,
+				new ConstantBooleanType(true),
+				new ConstantBooleanType(false),
+				ConstantBooleanType::class,
 				'true',
 			],
 			[
-				new FalseBooleanType(),
-				new TrueBooleanType(),
-				FalseBooleanType::class,
+				new ConstantBooleanType(false),
+				new ConstantBooleanType(true),
+				ConstantBooleanType::class,
 				'false',
 			],
 			[
-				new TrueBooleanType(),
-				new TrueOrFalseBooleanType(),
+				new ConstantBooleanType(true),
+				new BooleanType(),
 				NeverType::class,
 				'*NEVER*',
 			],
 			[
-				new FalseBooleanType(),
-				new TrueOrFalseBooleanType(),
+				new ConstantBooleanType(false),
+				new BooleanType(),
 				NeverType::class,
 				'*NEVER*',
 			],
 			[
-				new TrueOrFalseBooleanType(),
-				new TrueBooleanType(),
-				FalseBooleanType::class,
+				new BooleanType(),
+				new ConstantBooleanType(true),
+				ConstantBooleanType::class,
 				'false',
 			],
 			[
-				new TrueOrFalseBooleanType(),
-				new FalseBooleanType(),
-				TrueBooleanType::class,
+				new BooleanType(),
+				new ConstantBooleanType(false),
+				ConstantBooleanType::class,
 				'true',
 			],
 			[
-				new TrueOrFalseBooleanType(),
-				new TrueOrFalseBooleanType(),
+				new BooleanType(),
+				new BooleanType(),
 				NeverType::class,
 				'*NEVER*',
 			],
 			[
 				new UnionType([
-					new TrueBooleanType(),
+					new ConstantBooleanType(true),
 					new IntegerType(),
 				]),
-				new TrueOrFalseBooleanType(),
+				new BooleanType(),
 				IntegerType::class,
 				'int',
 			],
 			[
 				new UnionType([
-					new FalseBooleanType(),
+					new ConstantBooleanType(false),
 					new IntegerType(),
 				]),
-				new TrueOrFalseBooleanType(),
+				new BooleanType(),
 				IntegerType::class,
 				'int',
 			],
 			[
 				new UnionType([
-					new TrueOrFalseBooleanType(),
+					new BooleanType(),
 					new IntegerType(),
 				]),
-				new TrueBooleanType(),
+				new ConstantBooleanType(true),
 				UnionType::class,
-				'false|int',
+				'int|false',
 			],
 			[
 				new UnionType([
-					new TrueOrFalseBooleanType(),
+					new BooleanType(),
 					new IntegerType(),
 				]),
-				new FalseBooleanType(),
+				new ConstantBooleanType(false),
 				UnionType::class,
 				'int|true',
 			],
@@ -878,7 +1085,7 @@ class TypeCombinatorTest extends \PHPStan\Testing\TestCase
 	): void
 	{
 		$result = TypeCombinator::remove($fromType, $type);
-		$this->assertSame($expectedTypeDescription, $result->describe());
+		$this->assertSame($expectedTypeDescription, $result->describe(VerbosityLevel::value()));
 		$this->assertInstanceOf($expectedTypeClass, $result);
 	}
 

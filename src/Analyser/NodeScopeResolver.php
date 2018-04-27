@@ -26,11 +26,11 @@ use PhpParser\Node\Expr\MethodCall;
 use PhpParser\Node\Expr\New_;
 use PhpParser\Node\Expr\Print_;
 use PhpParser\Node\Expr\PropertyFetch;
+use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\StaticPropertyFetch;
 use PhpParser\Node\Expr\Ternary;
 use PhpParser\Node\Expr\Variable;
 use PhpParser\Node\Name;
-use PhpParser\Node\Param;
 use PhpParser\Node\Stmt\Break_;
 use PhpParser\Node\Stmt\Catch_;
 use PhpParser\Node\Stmt\Class_;
@@ -56,14 +56,20 @@ use PHPStan\PhpDoc\Tag\ParamTag;
 use PHPStan\TrinaryLogic;
 use PHPStan\Type\ArrayType;
 use PHPStan\Type\CommentHelper;
+use PHPStan\Type\Constant\ConstantArrayType;
+use PHPStan\Type\Constant\ConstantIntegerType;
+use PHPStan\Type\Constant\ConstantStringType;
+use PHPStan\Type\ConstantScalarType;
+use PHPStan\Type\ConstantType;
+use PHPStan\Type\ErrorType;
 use PHPStan\Type\FileTypeMapper;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\MixedType;
-use PHPStan\Type\NullType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
+use PHPStan\Type\UnionType;
 
 class NodeScopeResolver
 {
@@ -83,6 +89,9 @@ class NodeScopeResolver
 	/** @var \PHPStan\File\FileHelper */
 	private $fileHelper;
 
+	/** @var \PHPStan\Analyser\TypeSpecifier */
+	private $typeSpecifier;
+
 	/** @var bool */
 	private $polluteScopeWithLoopInitialAssignments;
 
@@ -98,12 +107,24 @@ class NodeScopeResolver
 	/** @var bool[] filePath(string) => bool(true) */
 	private $analysedFiles;
 
+	/**
+	 * @param Broker $broker
+	 * @param Parser $parser
+	 * @param \PhpParser\PrettyPrinter\Standard $printer
+	 * @param FileTypeMapper $fileTypeMapper
+	 * @param FileHelper $fileHelper
+	 * @param TypeSpecifier $typeSpecifier
+	 * @param bool $polluteScopeWithLoopInitialAssignments
+	 * @param bool $polluteCatchScopeWithTryAssignments
+	 * @param string[][] $earlyTerminatingMethodCalls className(string) => methods(string[])
+	 */
 	public function __construct(
 		Broker $broker,
 		Parser $parser,
 		\PhpParser\PrettyPrinter\Standard $printer,
 		FileTypeMapper $fileTypeMapper,
 		FileHelper $fileHelper,
+		TypeSpecifier $typeSpecifier,
 		bool $polluteScopeWithLoopInitialAssignments,
 		bool $polluteCatchScopeWithTryAssignments,
 		array $earlyTerminatingMethodCalls
@@ -114,6 +135,7 @@ class NodeScopeResolver
 		$this->printer = $printer;
 		$this->fileTypeMapper = $fileTypeMapper;
 		$this->fileHelper = $fileHelper;
+		$this->typeSpecifier = $typeSpecifier;
 		$this->polluteScopeWithLoopInitialAssignments = $polluteScopeWithLoopInitialAssignments;
 		$this->polluteCatchScopeWithTryAssignments = $polluteCatchScopeWithTryAssignments;
 		$this->earlyTerminatingMethodCalls = $earlyTerminatingMethodCalls;
@@ -137,7 +159,7 @@ class NodeScopeResolver
 		array $nodes,
 		Scope $scope,
 		\Closure $nodeCallback,
-		Scope $closureBindScope = null
+		?Scope $closureBindScope = null
 	): void
 	{
 		/** @var \PhpParser\Node|string $node */
@@ -156,10 +178,10 @@ class NodeScopeResolver
 					$parameters = $parametersAcceptor->getParameters();
 					$assignByReference = false;
 					if (isset($parameters[$i])) {
-						$assignByReference = $parameters[$i]->isPassedByReference();
+						$assignByReference = $parameters[$i]->passedByReference()->createsNewVariable();
 					} elseif (count($parameters) > 0 && $parametersAcceptor->isVariadic()) {
 						$lastParameter = $parameters[count($parameters) - 1];
-						$assignByReference = $lastParameter->isPassedByReference();
+						$assignByReference = $lastParameter->passedByReference()->createsNewVariable();
 					}
 					if ($assignByReference && $value instanceof Variable && is_string($value->name)) {
 						$scope = $scope->assignVariable($value->name, new MixedType(), TrinaryLogic::createYes());
@@ -193,13 +215,12 @@ class NodeScopeResolver
 						break;
 					}
 				}
-			} elseif (
-				$node instanceof FuncCall
-				&& $node->name instanceof Name
-				&& (string) $node->name === 'assert'
-				&& isset($node->args[0])
-			) {
-				$scope = $scope->filterByTruthyValue($node->args[0]->value);
+			} elseif ($node instanceof Expr) {
+				$scope = $scope->filterBySpecifiedTypes($this->typeSpecifier->specifyTypesInCondition(
+					$scope,
+					$node,
+					TypeSpecifierContext::createNull()
+				));
 			}
 		}
 	}
@@ -231,11 +252,14 @@ class NodeScopeResolver
 				&& $node->name instanceof Name
 				&& $this->broker->resolveFunctionName($node->name, $scope) === 'property_exists'
 				&& count($node->args) === 2
-				&& $node->args[1]->value instanceof  Node\Scalar\String_
 			) {
-				$scope = $scope->specifyFetchedPropertyFromIsset(
-					new PropertyFetch($node->args[0]->value, $node->args[1]->value->value)
-				);
+				$secondArgumentType = $scope->getType($node->args[1]->value);
+
+				if ($secondArgumentType instanceof ConstantStringType) {
+					$scope = $scope->specifyFetchedPropertyFromIsset(
+						new PropertyFetch($node->args[0]->value, $secondArgumentType->getValue())
+					);
+				}
 			}
 		} else {
 			if ($node instanceof Expr\Empty_) {
@@ -366,8 +390,8 @@ class NodeScopeResolver
 					&& $argValue->class instanceof Name
 				) {
 					$scopeClass = $scope->resolveName($argValue->class);
-				} elseif ($argValue instanceof Node\Scalar\String_) {
-					$scopeClass = $argValue->value;
+				} elseif ($argValueType instanceof ConstantStringType) {
+					$scopeClass = $argValueType->getValue();
 				}
 			}
 			$closureBindScope = $scope->enterClosureBind($thisType, $scopeClass);
@@ -395,7 +419,7 @@ class NodeScopeResolver
 			$this->processNodes($node->init, $scope, $nodeCallback);
 
 			foreach ($node->init as $initExpr) {
-				$scope = $this->lookForAssigns($scope, $initExpr, TrinaryLogic::createYes());
+				$scope = $this->lookForAssigns($scope, $initExpr, TrinaryLogic::createYes(), LookForAssignsSettings::insideLoop());
 			}
 			$scopeLoopMightHaveRun = $this->lookForAssignsInBranches($scope, [
 				new StatementList($scope, $node->cond),
@@ -434,7 +458,7 @@ class NodeScopeResolver
 				new StatementList($bodyScope, $node->stmts),
 				new StatementList($bodyScope, []),
 			], LookForAssignsSettings::insideLoop());
-			$bodyScope = $this->lookForAssigns($bodyScope, $node->cond, TrinaryLogic::createYes());
+			$bodyScope = $this->lookForAssigns($bodyScope, $node->cond, TrinaryLogic::createYes(), LookForAssignsSettings::insideLoop());
 			$bodyScope = $bodyScope->filterByTruthyValue($node->cond);
 			$this->processNodes($node->stmts, $bodyScope, $nodeCallback);
 			return;
@@ -457,6 +481,31 @@ class NodeScopeResolver
 			}
 
 			return;
+		} elseif ($node instanceof Expr\Closure) {
+			$this->processNodes($node->uses, $scope, $nodeCallback);
+			$closureScope = $this->lookForAssignsInBranches($scope, [
+				new StatementList($scope, $node->stmts),
+				new StatementList($scope, []),
+			], LookForAssignsSettings::insideFinally());
+			foreach ($node->uses as $closureUse) {
+				if (!$closureUse->byRef) {
+					continue;
+				}
+
+				$variableCertainty = $closureScope->hasVariableType($closureUse->var);
+				if ($variableCertainty->no()) {
+					continue;
+				}
+				$scope = $scope->assignVariable(
+					$closureUse->var,
+					$closureScope->getVariableType($closureUse->var),
+					$variableCertainty
+				);
+			}
+			$scope = $scope->enterAnonymousFunction($node->params, $node->uses, $node->returnType);
+			$this->processNodes($node->stmts, $scope, $nodeCallback);
+
+			return;
 		} elseif ($node instanceof If_) {
 			$this->processNode($node->cond, $scope->exitFirstLevelStatements(), $nodeCallback);
 			$scope = $this->lookForAssigns(
@@ -475,8 +524,8 @@ class NodeScopeResolver
 
 			$elseifScope = $ifScope->filterByFalseyValue($node->cond);
 			foreach ($node->elseifs as $elseif) {
-				$this->processNode($elseif, $scope, $nodeCallback, true);
 				$scope = $elseifScope;
+				$this->processNode($elseif, $scope, $nodeCallback, true);
 				$this->processNode($elseif->cond, $scope->exitFirstLevelStatements(), $nodeCallback);
 				$scope = $this->lookForAssigns(
 					$scope,
@@ -579,12 +628,14 @@ class NodeScopeResolver
 
 			foreach ($node->catches as $catch) {
 				$this->processNode($catch, $scope, $nodeCallback);
-				if ($node->finally !== null) {
-					$statements[] = new StatementList($scope->enterCatch(
-						$catch->types,
-						$catch->var
-					), $catch->stmts);
+				if ($node->finally === null) {
+					continue;
 				}
+
+				$statements[] = new StatementList($scope->enterCatch(
+					$catch->types,
+					$catch->var
+				), $catch->stmts);
 			}
 
 			if ($node->finally !== null) {
@@ -600,7 +651,7 @@ class NodeScopeResolver
 			$scope = $scope->enterFunctionCall($node);
 		} elseif ($node instanceof MethodCall) {
 			if (
-				$scope->getType($node->var)->describe() === \Closure::class
+				!(new ObjectType(\Closure::class))->isSuperTypeOf($scope->getType($node->var))->no()
 				&& $node->name === 'call'
 				&& isset($node->args[0])
 			) {
@@ -630,16 +681,18 @@ class NodeScopeResolver
 				while (
 					$unsetVar instanceof ArrayDimFetch
 					|| $unsetVar instanceof PropertyFetch
+					|| (
+						$unsetVar instanceof StaticPropertyFetch
+						&& $unsetVar->class instanceof Expr
+					)
 				) {
-					$unsetVar = $unsetVar->var;
+					if ($unsetVar instanceof StaticPropertyFetch) {
+						$unsetVar = $unsetVar->class;
+					} else {
+						$unsetVar = $unsetVar->var;
+					}
 				}
 
-				while (
-					$unsetVar instanceof StaticPropertyFetch
-					&& $unsetVar->class instanceof Expr
-				) {
-					$unsetVar = $unsetVar->class;
-				}
 				$scope = $scope->enterExpressionAssign($unsetVar);
 			}
 		} elseif ($node instanceof Node\Stmt\Global_) {
@@ -674,13 +727,6 @@ class NodeScopeResolver
 					$scope = $this->lookForAssigns($scope, $node->var, TrinaryLogic::createYes());
 				}
 
-				if (
-					$node instanceof \PhpParser\Node\Expr\Closure
-					&& $subNodeName === 'stmts'
-				) {
-					$scope = $scope->enterAnonymousFunction($node->params, $node->uses, $node->returnType);
-				}
-
 				if ($node instanceof Do_ && $subNodeName === 'stmts') {
 					$scope = $this->lookForAssignsInBranches($scope, [
 						new StatementList($scope, $node->stmts),
@@ -691,14 +737,14 @@ class NodeScopeResolver
 
 				if ($node instanceof Isset_ && $subNodeName === 'vars') {
 					foreach ($subNode as $issetVar) {
-						$scope = $this->ensureNonNullability($scope, $issetVar);
+						$scope = $this->ensureNonNullability($scope, $issetVar, true);
 					}
 				}
 
 				$this->processNodes($subNode, $scope, $nodeCallback, $argClosureBindScope);
 			} elseif ($subNode instanceof \PhpParser\Node) {
 				if ($node instanceof Coalesce && $subNodeName === 'left') {
-					$scope = $this->ensureNonNullability($scope, $subNode);
+					$scope = $this->ensureNonNullability($scope, $subNode, false);
 				}
 
 				if (
@@ -757,7 +803,14 @@ class NodeScopeResolver
 					}
 				}
 
-				$nodeScope = $scope->exitFirstLevelStatements();
+				if ($node instanceof Expr\Empty_ && $subNodeName === 'expr') {
+					$scope = $this->ensureNonNullability($scope, $subNode, true);
+				}
+
+				$nodeScope = $scope;
+				if (!$node instanceof ErrorSuppress) {
+					$nodeScope = $nodeScope->exitFirstLevelStatements();
+				}
 				if ($scope->isInFirstLevelStatement()) {
 					if ($node instanceof Ternary && $subNodeName !== 'cond') {
 						$nodeScope = $scope->enterFirstLevelStatements();
@@ -778,15 +831,35 @@ class NodeScopeResolver
 		}
 	}
 
-	private function ensureNonNullability(Scope $scope, Node $node): Scope
+	private function ensureNonNullability(
+		Scope $scope,
+		Node $node,
+		bool $findMethods
+	): Scope
 	{
 		$scope = $this->assignVariable($scope, $node, TrinaryLogic::createYes());
 		$nodeToSpecify = $node;
 		while (
 			$nodeToSpecify instanceof PropertyFetch
-			|| $nodeToSpecify instanceof MethodCall
+			|| $nodeToSpecify instanceof StaticPropertyFetch
+			|| (
+				$findMethods && (
+					$nodeToSpecify instanceof MethodCall
+					|| $nodeToSpecify instanceof StaticCall
+				)
+			)
 		) {
-			$nodeToSpecify = $nodeToSpecify->var;
+			if (
+				$nodeToSpecify instanceof PropertyFetch
+				|| $nodeToSpecify instanceof MethodCall
+			) {
+				$nodeToSpecify = $nodeToSpecify->var;
+			} elseif ($nodeToSpecify->class instanceof Expr) {
+				$nodeToSpecify = $nodeToSpecify->class;
+			} else {
+				break;
+			}
+
 			$scope = $scope->specifyExpressionType(
 				$nodeToSpecify,
 				TypeCombinator::removeNull($scope->getType($nodeToSpecify))
@@ -802,6 +875,7 @@ class NodeScopeResolver
 			$scope = $scope->enterExpressionAssign($node);
 		} elseif ($node instanceof ArrayDimFetch) {
 			while ($node instanceof ArrayDimFetch) {
+				$scope = $scope->enterExpressionAssign($node);
 				$node = $node->var;
 			}
 
@@ -813,11 +887,8 @@ class NodeScopeResolver
 				if ($listItem === null) {
 					continue;
 				}
-				$listItemValue = $listItem;
-				if ($listItemValue instanceof Expr\ArrayItem) {
-					$listItemValue = $listItemValue->value;
-				}
-				$scope = $this->lookForEnterVariableAssign($scope, $listItemValue);
+
+				$scope = $this->lookForEnterVariableAssign($scope, $listItem->value);
 			}
 		} else {
 			$scope = $scope->enterExpressionAssign($node);
@@ -830,7 +901,7 @@ class NodeScopeResolver
 		Scope $scope,
 		\PhpParser\Node $node,
 		TrinaryLogic $certainty,
-		LookForAssignsSettings $lookForAssignsSettings = null
+		?LookForAssignsSettings $lookForAssignsSettings = null
 	): Scope
 	{
 		if ($lookForAssignsSettings === null) {
@@ -856,15 +927,18 @@ class NodeScopeResolver
 			$elseIfScope = $scope->filterByFalseyValue($node->cond);
 			$elseIfStatements = [];
 			foreach ($node->elseifs as $elseIf) {
-				$elseIfStatements[] = new StatementList($elseIfScope, array_merge([$elseIf->cond], $elseIf->stmts));
+				$elseIfStatements[] = new StatementList(
+					$elseIfScope->filterByTruthyValue($elseIf->cond),
+					array_merge([$elseIf->cond], $elseIf->stmts)
+				);
 				$elseIfScope = $elseIfScope->filterByFalseyValue($elseIf->cond);
 			}
 
-			$statements = [
-				$ifStatement,
-				new StatementList($elseIfScope, $node->else !== null ? $node->else->stmts : []),
-			];
-			$statements = array_merge($statements, $elseIfStatements);
+			$statements = array_merge(
+				[$ifStatement],
+				$elseIfStatements,
+				[new StatementList($elseIfScope, $node->else !== null ? $node->else->stmts : [])]
+			);
 
 			$scope = $this->lookForAssignsInBranches($scope, $statements, $lookForAssignsSettings);
 		} elseif ($node instanceof TryCatch) {
@@ -899,10 +973,10 @@ class NodeScopeResolver
 				foreach ($node->args as $i => $arg) {
 					$assignByReference = false;
 					if (isset($parameters[$i])) {
-						$assignByReference = $parameters[$i]->isPassedByReference();
+						$assignByReference = $parameters[$i]->passedByReference()->createsNewVariable();
 					} elseif (count($parameters) > 0 && $parametersAcceptor->isVariadic()) {
 						$lastParameter = $parameters[count($parameters) - 1];
-						$assignByReference = $lastParameter->isPassedByReference();
+						$assignByReference = $lastParameter->passedByReference()->createsNewVariable();
 					}
 
 					if (!$assignByReference) {
@@ -910,9 +984,11 @@ class NodeScopeResolver
 					}
 
 					$arg = $node->args[$i]->value;
-					if ($arg instanceof Variable && is_string($arg->name)) {
-						$scope = $scope->assignVariable($arg->name, new MixedType(), $certainty);
+					if (!($arg instanceof Variable) || !is_string($arg->name)) {
+						continue;
 					}
+
+					$scope = $scope->assignVariable($arg->name, new MixedType(), $certainty);
 				}
 			}
 			if (
@@ -924,6 +1000,66 @@ class NodeScopeResolver
 				], true)
 			) {
 				$scope = $scope->assignVariable('http_response_header', new ArrayType(new IntegerType(), new StringType(), false), $certainty);
+			}
+
+			if (
+				$node instanceof FuncCall
+				&& $node->name instanceof Name
+				&& in_array(strtolower((string) $node->name), [
+					'array_push',
+					'array_unshift',
+				], true)
+				&& count($node->args) >= 2
+			) {
+				$argumentTypes = [];
+				foreach (array_slice($node->args, 1) as $callArg) {
+					$callArgType = $scope->getType($callArg->value);
+					if ($callArg->unpack) {
+						$iterableValueType = $callArgType->getIterableValueType();
+						if ($iterableValueType instanceof UnionType) {
+							foreach ($iterableValueType->getTypes() as $innerType) {
+								$argumentTypes[] = $innerType;
+							}
+						} else {
+							$argumentTypes[] = $iterableValueType;
+						}
+						continue;
+					}
+
+					$argumentTypes[] = $callArgType;
+				}
+
+				$arrayArg = $node->args[0]->value;
+				$originalArrayType = $scope->getType($arrayArg);
+				$functionName = strtolower((string) $node->name);
+				if (
+					$functionName === 'array_push'
+					|| ($originalArrayType instanceof ArrayType && !$originalArrayType instanceof ConstantArrayType)
+				) {
+					$arrayType = $originalArrayType;
+					foreach ($argumentTypes as $argType) {
+						$arrayType = $arrayType->setOffsetValueType(null, $argType);
+					}
+				} elseif (
+					$functionName === 'array_unshift'
+					&& $originalArrayType instanceof ConstantArrayType
+				) {
+					$arrayType = new ConstantArrayType([], []);
+					foreach ($argumentTypes as $argType) {
+						$arrayType = $arrayType->setOffsetValueType(null, $argType);
+					}
+					foreach ($originalArrayType->getKeyTypes() as $i => $keyType) {
+						$valueType = $originalArrayType->getValueTypes()[$i];
+						if ($keyType instanceof ConstantIntegerType) {
+							$keyType = null;
+						}
+						$arrayType = $arrayType->setOffsetValueType($keyType, $valueType);
+					}
+				} else {
+					throw new \PHPStan\ShouldNotHappenException();
+				}
+
+				$scope = $scope->specifyExpressionType($arrayArg, $arrayType);
 			}
 		} elseif ($node instanceof BinaryOp) {
 			$scope = $this->lookForAssigns($scope, $node->left, $certainty);
@@ -970,7 +1106,7 @@ class NodeScopeResolver
 			$scope = $this->lookForAssignsInBranches($scope, [
 				new StatementList($scope, $node->stmts),
 			], LookForAssignsSettings::afterLoop());
-			$scope = $this->lookForAssigns($scope, $node->cond, TrinaryLogic::createYes());
+			$scope = $this->lookForAssigns($scope, $node->cond, TrinaryLogic::createYes(), LookForAssignsSettings::afterLoop());
 		} elseif ($node instanceof Switch_) {
 			$statementLists = [];
 			$tmpStatements = [];
@@ -1004,11 +1140,11 @@ class NodeScopeResolver
 		} elseif ($node instanceof For_) {
 			$forAssignmentsCertainty = $this->polluteScopeWithLoopInitialAssignments ? TrinaryLogic::createYes() : TrinaryLogic::createMaybe();
 			foreach ($node->init as $initExpr) {
-				$scope = $this->lookForAssigns($scope, $initExpr, $forAssignmentsCertainty);
+				$scope = $this->lookForAssigns($scope, $initExpr, $forAssignmentsCertainty, LookForAssignsSettings::afterLoop());
 			}
 
 			foreach ($node->cond as $condExpr) {
-				$scope = $this->lookForAssigns($scope, $condExpr, $forAssignmentsCertainty);
+				$scope = $this->lookForAssigns($scope, $condExpr, $forAssignmentsCertainty, LookForAssignsSettings::afterLoop());
 			}
 
 			$statements = [
@@ -1017,11 +1153,11 @@ class NodeScopeResolver
 			];
 			$scope = $this->lookForAssignsInBranches($scope, $statements, LookForAssignsSettings::afterLoop());
 			foreach ($node->loop as $loopExpr) {
-				$scope = $this->lookForAssigns($scope, $loopExpr, TrinaryLogic::createMaybe());
+				$scope = $this->lookForAssigns($scope, $loopExpr, TrinaryLogic::createMaybe(), LookForAssignsSettings::afterLoop());
 			}
 		} elseif ($node instanceof While_) {
 			$whileAssignmentsCertainty = $this->polluteScopeWithLoopInitialAssignments ? TrinaryLogic::createYes() : TrinaryLogic::createMaybe();
-			$scope = $this->lookForAssigns($scope, $node->cond, $whileAssignmentsCertainty);
+			$scope = $this->lookForAssigns($scope, $node->cond, $whileAssignmentsCertainty, LookForAssignsSettings::afterLoop());
 
 			$statements = [
 				new StatementList($scope, $node->stmts),
@@ -1032,9 +1168,7 @@ class NodeScopeResolver
 			$scope = $this->lookForAssigns($scope, $node->expr, $certainty);
 		} elseif ($node instanceof \PhpParser\Node\Stmt\Unset_) {
 			foreach ($node->vars as $var) {
-				if ($var instanceof Variable && is_string($var->name)) {
-					$scope = $scope->unsetVariable($var->name);
-				}
+				$scope = $scope->unsetExpression($var);
 			}
 		} elseif ($node instanceof Echo_) {
 			foreach ($node->exprs as $echoedExpr) {
@@ -1048,7 +1182,7 @@ class NodeScopeResolver
 			$scope = $this->enterForeach($scope, $node);
 			$statements = [
 				new StatementList($scope, array_merge(
-					[new Node\Stmt\Nop],
+					[new Node\Stmt\Nop()],
 					$node->stmts
 				)),
 				new StatementList($initialScope, []), // in order not to add variables existing only inside the for loop
@@ -1063,33 +1197,127 @@ class NodeScopeResolver
 		} elseif ($node instanceof ArrayDimFetch && $node->dim !== null) {
 			$scope = $this->lookForAssigns($scope, $node->dim, $certainty);
 		} elseif ($node instanceof Expr\Closure) {
+			$closureScope = $scope->enterAnonymousFunction($node->params, $node->uses, $node->returnType);
+			$statements = [
+				new StatementList($closureScope, array_merge(
+					[new Node\Stmt\Nop()],
+					$node->stmts
+				)),
+				new StatementList($closureScope, []),
+			];
+			$closureScope = $this->lookForAssignsInBranches($scope, $statements, LookForAssignsSettings::insideFinally());
 			foreach ($node->uses as $closureUse) {
-				if (!$closureUse->byRef || $scope->hasVariableType($closureUse->var)->yes()) {
+				if (!$closureUse->byRef) {
 					continue;
 				}
 
-				$scope = $scope->assignVariable($closureUse->var, new MixedType(), $certainty);
+				$variableCertainty = $closureScope->hasVariableType($closureUse->var);
+				if ($variableCertainty->no()) {
+					continue;
+				}
+
+				$scope = $scope->assignVariable(
+					$closureUse->var,
+					$closureScope->getVariableType($closureUse->var),
+					$variableCertainty
+				);
 			}
 		} elseif ($node instanceof Instanceof_) {
 			$scope = $this->lookForAssigns($scope, $node->expr, $certainty);
 		} elseif ($node instanceof Expr\Include_) {
 			$scope = $this->lookForAssigns($scope, $node->expr, $certainty);
+		} elseif (
+			$node instanceof Expr\PostInc
+			|| $node instanceof Expr\PostDec
+			|| $node instanceof Expr\PreInc
+			|| $node instanceof Expr\PreDec
+		) {
+			if (
+				$node->var instanceof Variable
+				&& is_string($node->var->name)
+			) {
+				$variableCertainty = $scope->hasVariableType($node->var->name);
+				if (!$variableCertainty->no()) {
+					$variableType = $scope->getVariableType($node->var->name);
+					if ($variableType instanceof ConstantScalarType) {
+						$variableValue = $variableType->getValue();
+						if (
+							$node instanceof Expr\PostInc
+							|| $node instanceof Expr\PreInc
+						) {
+							$variableValue++;
+						} else {
+							$variableValue--;
+						}
+
+						$newType = $scope->getTypeFromValue($variableValue);
+						if (
+							$lookForAssignsSettings->shouldGeneralizeConstantTypesOfNonIdempotentOperations()
+							&& $newType instanceof ConstantType
+						) {
+							$newType = $newType->generalize();
+						}
+						$scope = $this->assignVariable(
+							$scope,
+							$node->var,
+							$variableCertainty,
+							$newType
+						);
+					}
+				}
+			} elseif (
+				$node->var instanceof ArrayDimFetch
+				&& $node->var->dim !== null
+			) {
+				$arrayType = $scope->getType($node->var->var);
+				if ($arrayType instanceof ArrayType) {
+					$dimType = $scope->getType($node->var->dim);
+					$valueType = $arrayType->getOffsetValueType($dimType);
+					if ($valueType instanceof ConstantScalarType) {
+						$offsetValue = $valueType->getValue();
+						if (
+							$node instanceof Expr\PreInc
+							|| $node instanceof Expr\PostInc
+						) {
+							$offsetValue++;
+						} else {
+							$offsetValue--;
+						}
+
+						$newType = $scope->getTypeFromValue($offsetValue);
+						if (
+							$lookForAssignsSettings->shouldGeneralizeConstantTypesOfNonIdempotentOperations()
+							&& $newType instanceof ConstantType
+						) {
+							$newType = $newType->generalize();
+						}
+
+						$scope = $scope->specifyExpressionType(
+							$node->var->var,
+							$arrayType->setOffsetValueType($dimType, $newType)
+						);
+					}
+				}
+			}
 		}
 
-		$scope = $this->updateScopeForVariableAssign($scope, $node, $certainty);
+		$scope = $this->updateScopeForVariableAssign($scope, $node, $certainty, $lookForAssignsSettings);
 
 		return $scope;
 	}
 
-	private function updateScopeForVariableAssign(Scope $scope, \PhpParser\Node $node, TrinaryLogic $certainty): Scope
+	private function updateScopeForVariableAssign(
+		Scope $scope,
+		\PhpParser\Node $node,
+		TrinaryLogic $certainty,
+		LookForAssignsSettings $lookForAssignsSettings
+	): Scope
 	{
 		if ($node instanceof Assign || $node instanceof AssignRef || $node instanceof Expr\AssignOp || $node instanceof Node\Stmt\Global_) {
 			if ($node instanceof Assign || $node instanceof AssignRef || $node instanceof Expr\AssignOp) {
 				$vars = [$node->var];
-			} elseif ($node instanceof Node\Stmt\Global_) {
-				$vars = $node->vars;
 			} else {
-				throw new \PHPStan\ShouldNotHappenException();
+				$vars = $node->vars;
 			}
 
 			foreach ($vars as $var) {
@@ -1100,19 +1328,34 @@ class NodeScopeResolver
 					if (
 						$node->var instanceof Variable
 						&& is_string($node->var->name)
-						&& !$scope->hasVariableType($node->var->name)->yes()
+						&& !$scope->hasVariableType($node->var->name)->no()
 					) {
-						continue;
+						$type = $scope->getType($node);
+
+						if (
+							$lookForAssignsSettings->shouldGeneralizeConstantTypesOfNonIdempotentOperations()
+							&& $type instanceof ConstantType
+						) {
+							$type = $type->generalize();
+						}
+					} elseif ($node->var instanceof ArrayDimFetch) {
+						$type = $scope->getType($node);
+						if ($lookForAssignsSettings->shouldGeneralizeConstantTypesOfNonIdempotentOperations()) {
+							if ($type instanceof ConstantType) {
+								$type = $type->generalize();
+							} elseif ($type instanceof UnionType) {
+								$type = TypeCombinator::union(...array_map(function (Type $type): Type {
+									if ($type instanceof ConstantType) {
+										return $type->generalize();
+									}
+
+									return $type;
+								}, $type->getTypes()));
+							}
+						}
 					}
-					$type = $scope->getType($node);
-				} elseif (
-					$node instanceof Node\Stmt\Global_
-					&& $var instanceof Variable
-					&& is_string($var->name)
-					&& $scope->hasVariableType($var->name)->no()
-				) {
-					$this->assignVariable($scope, $var, $certainty);
 				}
+
 				$scope = $this->assignVariable($scope, $var, $certainty, $type);
 			}
 
@@ -1144,6 +1387,7 @@ class NodeScopeResolver
 		$resolvedPhpDoc = $this->fileTypeMapper->getResolvedPhpDoc(
 			$scope->getFile(),
 			$scope->isInClass() ? $scope->getClassReflection()->getName() : null,
+			$scope->isInTrait() ? $scope->getTraitReflection()->getName() : null,
 			$comment
 		);
 		$varTags = $resolvedPhpDoc->getVarTags();
@@ -1152,65 +1396,94 @@ class NodeScopeResolver
 			$variableType = $varTags[$variableName]->getType();
 			return $scope->assignVariable($variableName, $variableType, TrinaryLogic::createYes());
 
-		} elseif (!$strict && count($varTags) === 1 && isset($varTags[0])) {
+		}
+
+		if (!$strict && count($varTags) === 1 && isset($varTags[0])) {
 			$variableType = $varTags[0]->getType();
 			return $scope->assignVariable($variableName, $variableType, TrinaryLogic::createYes());
 
-		} else {
-			return $scope;
 		}
+
+		return $scope;
 	}
 
 	private function assignVariable(
 		Scope $scope,
 		Node $var,
 		TrinaryLogic $certainty,
-		Type $subNodeType = null
+		?Type $subNodeType = null
 	): Scope
 	{
 		if ($var instanceof Variable && is_string($var->name)) {
 			$scope = $scope->assignVariable($var->name, $subNodeType !== null ? $subNodeType : new MixedType(), $certainty);
 		} elseif ($var instanceof ArrayDimFetch) {
-			$depth = 0;
+			$subNodeType = $subNodeType ?? new MixedType();
+
+			$dimExprStack = [];
 			while ($var instanceof ArrayDimFetch) {
+				$dimExprStack[] = $var->dim;
 				$var = $var->var;
-				$depth++;
 			}
 
-			if (isset($var->dim)) {
-				$scope = $this->lookForAssigns($scope, $var->dim, TrinaryLogic::createYes());
+			// 1. eval root expr
+			$scope = $this->lookForAssigns($scope, $var, TrinaryLogic::createYes());
+
+			// 2. eval dimensions
+			$offsetTypes = [];
+			foreach (array_reverse($dimExprStack) as $dimExpr) {
+				if ($dimExpr === null) {
+					$offsetTypes[] = null;
+
+				} else {
+					$scope = $this->lookForAssigns($scope, $dimExpr, TrinaryLogic::createYes());
+					$offsetTypes[] = $scope->getType($dimExpr);
+				}
 			}
 
+			// 3. eval assigned expr, unfortunately this was already done
+
+			// 4. compose types
 			if ($var instanceof Variable && is_string($var->name)) {
-				if ($scope->hasVariableType($var->name)->yes()) {
-					$arrayDimFetchVariableType = $scope->getVariableType($var->name);
-					if (
-						!$arrayDimFetchVariableType instanceof ArrayType
-						&& !$arrayDimFetchVariableType instanceof NullType
-						&& !$arrayDimFetchVariableType instanceof MixedType
-					) {
-						return $scope;
-					}
-				}
-				$arrayType = ArrayType::createDeepArrayType(
-					$subNodeType !== null ? $subNodeType : new MixedType(),
-					$depth,
-					false
-				);
-				if ($scope->hasVariableType($var->name)->yes()) {
-					if (
-						!isset($arrayDimFetchVariableType)
-						|| !$arrayDimFetchVariableType instanceof NullType
-					) {
-						$arrayType = TypeCombinator::union(
-							$scope->getVariableType($var->name),
-							$arrayType
-						);
-					}
+				if (!$scope->hasVariableType($var->name)->no()) {
+					$varType = $scope->getVariableType($var->name);
+
+				} else {
+					$varType = new ConstantArrayType([], []);
 				}
 
-				$scope = $scope->assignVariable($var->name, $arrayType, $certainty);
+				$offsetValueType = $varType;
+				$offsetValueTypeStack = [$offsetValueType];
+				foreach (array_slice($offsetTypes, 0, -1) as $offsetType) {
+					if ($offsetType === null) {
+						$offsetValueType = new ConstantArrayType([], []);
+
+					} else {
+						$offsetValueType = $offsetValueType->getOffsetValueType($offsetType);
+						if ($offsetValueType instanceof ErrorType) {
+							$offsetValueType = new ConstantArrayType([], []);
+						}
+					}
+
+					$offsetValueTypeStack[] = $offsetValueType;
+				}
+
+				$valueToWrite = $subNodeType;
+				foreach (array_reverse($offsetTypes) as $offsetType) {
+					$offsetValueType = array_pop($offsetValueTypeStack);
+					$valueToWrite = $offsetValueType->setOffsetValueType($offsetType, $valueToWrite);
+				}
+
+				if ($valueToWrite instanceof ErrorType) {
+					$valueToWrite = new ArrayType(new MixedType(), new MixedType(), true);
+				}
+
+				$scope = $scope->assignVariable(
+					$var->name,
+					$valueToWrite,
+					$certainty
+				);
 			}
+
 		} elseif ($var instanceof PropertyFetch && $subNodeType !== null) {
 			$scope = $scope->specifyExpressionType($var, $subNodeType);
 		} elseif ($var instanceof Expr\StaticPropertyFetch && $subNodeType !== null) {
@@ -1254,19 +1527,23 @@ class NodeScopeResolver
 				}
 			}
 
-			if ($lookForAssignsSettings->shouldIntersectVariables($earlyTerminationStatement)) {
-				if ($intersectedScope === null) {
-					$intersectedScope = $initialScope->createIntersectedScope($branchScopeWithInitialScopeRemoved);
-				} else {
-					$intersectedScope = $intersectedScope->intersectVariables($branchScopeWithInitialScopeRemoved);
-				}
+			if (!$lookForAssignsSettings->shouldIntersectVariables($earlyTerminationStatement)) {
+				continue;
+			}
 
-				if ($statementList->shouldFilterByTruthyValue()) {
-					/** @var \PhpParser\Node\Expr $statement */
-					foreach ($statements as $statement) {
-						$intersectedScope = $intersectedScope->filterByTruthyValue($statement);
-					}
-				}
+			if ($intersectedScope === null) {
+				$intersectedScope = $initialScope->createIntersectedScope($branchScopeWithInitialScopeRemoved);
+			} else {
+				$intersectedScope = $intersectedScope->intersectVariables($branchScopeWithInitialScopeRemoved);
+			}
+
+			if (!$statementList->shouldFilterByTruthyValue()) {
+				continue;
+			}
+
+			/** @var \PhpParser\Node\Expr $statement */
+			foreach ($statements as $statement) {
+				$intersectedScope = $intersectedScope->filterByTruthyValue($statement);
 			}
 		}
 
@@ -1306,12 +1583,21 @@ class NodeScopeResolver
 			|| $statement instanceof Exit_
 		) {
 			return $statement;
-		} elseif ($statement instanceof MethodCall && count($this->earlyTerminatingMethodCalls) > 0) {
+		} elseif (($statement instanceof MethodCall || $statement instanceof Expr\StaticCall) && count($this->earlyTerminatingMethodCalls) > 0) {
 			if (!is_string($statement->name)) {
 				return null;
 			}
 
-			$methodCalledOnType = $scope->getType($statement->var);
+			if ($statement instanceof MethodCall) {
+				$methodCalledOnType = $scope->getType($statement->var);
+			} else {
+				if ($statement->class instanceof Name) {
+					$methodCalledOnType = $scope->getFunctionType($statement->class, false, false);
+				} else {
+					$methodCalledOnType = $scope->getType($statement->class);
+				}
+			}
+
 			foreach ($methodCalledOnType->getReferencedClasses() as $referencedClass) {
 				if (!$this->broker->hasClass($referencedClass)) {
 					continue;
@@ -1400,24 +1686,14 @@ class NodeScopeResolver
 				return;
 			}
 			$parserNodes = $this->parser->parseFile($fileName);
-			$className = sprintf('class %s', $classScope->getClassReflection()->getDisplayName());
-			if ($classScope->getClassReflection()->isAnonymous()) {
-				$className = 'anonymous class';
-			}
-			$classScope = $classScope->changeAnalysedContextFile(
-				sprintf(
-					'%s (in context of %s)',
-					$fileName,
-					$className
-				)
-			);
+			$classScope = $classScope->enterTrait($traitReflection);
 
 			$this->processNodesForTraitUse($parserNodes, $traitName, $classScope, $nodeCallback);
 		}
 	}
 
 	/**
-	 * @param \PhpParser\Node[]|\PhpParser\Node $node
+	 * @param \PhpParser\Node[]|\PhpParser\Node|scalar $node
 	 * @param string $traitName
 	 * @param \PHPStan\Analyser\Scope $classScope
 	 * @param \Closure $nodeCallback
@@ -1454,6 +1730,11 @@ class NodeScopeResolver
 		);
 	}
 
+	/**
+	 * @param Scope $scope
+	 * @param Node\FunctionLike $functionLike
+	 * @return mixed[]
+	 */
 	private function getPhpDocs(Scope $scope, Node\FunctionLike $functionLike): array
 	{
 		$phpDocParameterTypes = [];
@@ -1462,7 +1743,11 @@ class NodeScopeResolver
 			$docComment = $functionLike->getDocComment()->getText();
 			$file = $scope->getFile();
 			$class = $scope->isInClass() ? $scope->getClassReflection()->getName() : null;
+			$trait = $scope->isInTrait() ? $scope->getTraitReflection()->getName() : null;
 			if ($functionLike instanceof Node\Stmt\ClassMethod) {
+				if (!$scope->isInClass()) {
+					throw new \PHPStan\ShouldNotHappenException();
+				}
 				$phpDocBlock = PhpDocBlock::resolvePhpDocBlockForMethod(
 					$this->broker,
 					$docComment,
@@ -1478,6 +1763,7 @@ class NodeScopeResolver
 			$resolvedPhpDoc = $this->fileTypeMapper->getResolvedPhpDoc(
 				$file,
 				$class,
+				$trait,
 				$docComment
 			);
 			$phpDocParameterTypes = array_map(function (ParamTag $tag): Type {

@@ -27,15 +27,21 @@ class ErrorsConsoleStyle extends \Symfony\Component\Console\Style\SymfonyStyle
 		$this->output = $output;
 	}
 
+	/**
+	 * @param string[] $headers
+	 * @param string[][] $rows
+	 */
 	public function table(array $headers, array $rows): void
 	{
 		$terminalWidth = (new \Symfony\Component\Console\Terminal())->getWidth();
 		$maxHeaderWidth = strlen($headers[0]);
 		foreach ($rows as $row) {
 			$length = strlen($row[0]);
-			if ($maxHeaderWidth === 0 || $length > $maxHeaderWidth) {
-				$maxHeaderWidth = $length;
+			if ($maxHeaderWidth !== 0 && $length <= $maxHeaderWidth) {
+				continue;
 			}
+
+			$maxHeaderWidth = $length;
 		}
 
 		$wrap = function ($rows) use ($terminalWidth, $maxHeaderWidth) {

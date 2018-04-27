@@ -3,6 +3,11 @@
 namespace PHPStan\Type;
 
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Constant\ConstantArrayType;
+use PHPStan\Type\Constant\ConstantBooleanType;
+use PHPStan\Type\Constant\ConstantFloatType;
+use PHPStan\Type\Constant\ConstantIntegerType;
+use PHPStan\Type\Constant\ConstantStringType;
 
 class UnionTypeTest extends \PHPStan\Testing\TestCase
 {
@@ -12,17 +17,27 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 		return [
 			[
 				new UnionType([
-					new ArrayType(new MixedType(), new MixedType(), false, TrinaryLogic::createYes()),
+					new ConstantArrayType(
+						[new ConstantIntegerType(0), new ConstantIntegerType(1)],
+						[new ConstantStringType('Closure'), new ConstantStringType('bind')]
+					),
+					new ConstantStringType('array_push'),
+				]),
+				TrinaryLogic::createYes(),
+			],
+			[
+				new UnionType([
+					new ArrayType(new MixedType(), new MixedType(), false),
 					new StringType(),
 				]),
 				TrinaryLogic::createMaybe(),
 			],
 			[
 				new UnionType([
-					new ArrayType(new MixedType(), new MixedType(), false, TrinaryLogic::createYes()),
+					new ArrayType(new MixedType(), new MixedType(), false),
 					new ObjectType('Closure'),
 				]),
-				TrinaryLogic::createYes(),
+				TrinaryLogic::createMaybe(),
 			],
 			[
 				new UnionType([
@@ -47,7 +62,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isCallable()', $type->describe())
+			sprintf('%s -> isCallable()', $type->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -122,7 +137,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$unionTypeA,
-			new UnionType([new TrueBooleanType(), new FloatType()]),
+			new UnionType([new ConstantBooleanType(true), new FloatType()]),
 			TrinaryLogic::createNo(),
 		];
 
@@ -245,7 +260,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isSuperTypeOf(%s)', $type->describe(), $otherType->describe())
+			sprintf('%s -> isSuperTypeOf(%s)', $type->describe(VerbosityLevel::value()), $otherType->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -326,7 +341,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 
 		yield [
 			$unionTypeA,
-			new UnionType([new TrueBooleanType(), new FloatType()]),
+			new UnionType([new ConstantBooleanType(true), new FloatType()]),
 			TrinaryLogic::createNo(),
 		];
 
@@ -420,7 +435,7 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isSubTypeOf(%s)', $type->describe(), $otherType->describe())
+			sprintf('%s -> isSubTypeOf(%s)', $type->describe(VerbosityLevel::value()), $otherType->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -438,7 +453,90 @@ class UnionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isSuperTypeOf(%s)', $otherType->describe(), $type->describe())
+			sprintf('%s -> isSuperTypeOf(%s)', $otherType->describe(VerbosityLevel::value()), $type->describe(VerbosityLevel::value()))
+		);
+	}
+
+	public function dataDescribe(): array
+	{
+		return [
+			[
+				new UnionType([new IntegerType(), new StringType()]),
+				'int|string',
+				'int|string',
+			],
+			[
+				new UnionType([new IntegerType(), new StringType(), new NullType()]),
+				'int|string|null',
+				'int|string|null',
+			],
+			[
+				new UnionType([
+					new ConstantStringType('1aaa'),
+					new ConstantStringType('11aaa'),
+					new ConstantStringType('2aaa'),
+					new ConstantStringType('10aaa'),
+					new ConstantIntegerType(2),
+					new ConstantIntegerType(1),
+					new ConstantIntegerType(10),
+					new ConstantFloatType(2.2),
+					new NullType(),
+					new ConstantStringType('10'),
+					new ObjectType(\stdClass::class),
+					new ConstantBooleanType(true),
+					new ConstantStringType('foo'),
+					new ConstantStringType('2'),
+					new ConstantStringType('1'),
+				]),
+				"1|2|2.2|10|'1'|'10'|'10aaa'|'11aaa'|'1aaa'|'2'|'2aaa'|'foo'|stdClass|true|null",
+				'float|int|stdClass|string|true|null',
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider dataDescribe
+	 * @param UnionType $type
+	 * @param string $expectedValueDescription
+	 * @param string $expectedTypeOnlyDescription
+	 */
+	public function testDescribe(
+		UnionType $type,
+		string $expectedValueDescription,
+		string $expectedTypeOnlyDescription
+	): void
+	{
+		$this->assertSame($expectedValueDescription, $type->describe(VerbosityLevel::value()));
+		$this->assertSame($expectedTypeOnlyDescription, $type->describe(VerbosityLevel::typeOnly()));
+	}
+
+	public function dataAccepts(): array
+	{
+		return [
+			[
+				new UnionType([new CallableType(), new NullType()]),
+				new ClosureType([], new StringType(), false),
+				true,
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider dataAccepts
+	 * @param UnionType $type
+	 * @param Type $acceptedType
+	 * @param bool $expectedResult
+	 */
+	public function testAccepts(
+		UnionType $type,
+		Type $acceptedType,
+		bool $expectedResult
+	): void
+	{
+		$this->assertSame(
+			$expectedResult,
+			$type->accepts($acceptedType),
+			sprintf('%s -> accepts(%s)', $type->describe(VerbosityLevel::value()), $acceptedType->describe(VerbosityLevel::value()))
 		);
 	}
 

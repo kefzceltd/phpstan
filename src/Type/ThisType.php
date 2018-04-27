@@ -5,9 +5,14 @@ namespace PHPStan\Type;
 class ThisType extends StaticType
 {
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		return sprintf('$this(%s)', $this->getBaseClass());
+	}
+
+	public function accepts(Type $type): bool
+	{
+		return $type instanceof self && $type->getBaseClass() === $this->getBaseClass();
 	}
 
 }

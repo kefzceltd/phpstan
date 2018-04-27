@@ -7,18 +7,15 @@ use PHPStan\Analyser\Scope;
 use PHPStan\Broker\Broker;
 use PHPStan\Rules\RuleLevelHelper;
 use PHPStan\Type\ErrorType;
+use PHPStan\Type\VerbosityLevel;
 
 class AccessPropertiesRule implements \PHPStan\Rules\Rule
 {
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var \PHPStan\Rules\RuleLevelHelper
-	 */
+	/** @var \PHPStan\Rules\RuleLevelHelper */
 	private $ruleLevelHelper;
 
 	public function __construct(
@@ -59,7 +56,7 @@ class AccessPropertiesRule implements \PHPStan\Rules\Rule
 
 		if (!$type->canAccessProperties()->yes()) {
 			return [
-				sprintf('Cannot access property $%s on %s.', $name, $type->describe()),
+				sprintf('Cannot access property $%s on %s.', $name, $type->describe(VerbosityLevel::typeOnly())),
 			];
 		}
 
@@ -90,7 +87,7 @@ class AccessPropertiesRule implements \PHPStan\Rules\Rule
 			return [
 				sprintf(
 					'Access to an undefined property %s::$%s.',
-					$type->describe(),
+					$type->describe(VerbosityLevel::typeOnly()),
 					$name
 				),
 			];
@@ -102,7 +99,7 @@ class AccessPropertiesRule implements \PHPStan\Rules\Rule
 				sprintf(
 					'Access to %s property %s::$%s.',
 					$propertyReflection->isPrivate() ? 'private' : 'protected',
-					$type->describe(),
+					$type->describe(VerbosityLevel::typeOnly()),
 					$name
 				),
 			];

@@ -5,8 +5,11 @@ namespace PHPStan\Type;
 use PHPStan\Analyser\Scope;
 use PHPStan\Reflection\ClassConstantReflection;
 use PHPStan\Reflection\MethodReflection;
+use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\PropertyReflection;
+use PHPStan\Reflection\TrivialParametersAcceptor;
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Constant\ConstantBooleanType;
 
 class UnionType implements CompoundType, StaticResolvableType
 {
@@ -24,7 +27,7 @@ class UnionType implements CompoundType, StaticResolvableType
 				'Cannot create %s with: %s',
 				self::class,
 				implode(', ', array_map(function (Type $type): string {
-					return $type->describe();
+					return $type->describe(VerbosityLevel::value());
 				}, $types))
 			));
 		};
@@ -32,9 +35,11 @@ class UnionType implements CompoundType, StaticResolvableType
 			$throwException();
 		}
 		foreach ($types as $type) {
-			if ($type instanceof UnionType) {
-				$throwException();
+			if (!($type instanceof UnionType)) {
+				continue;
 			}
+
+			$throwException();
 		}
 		$this->types = UnionTypeHelper::sortTypes($types);
 	}
@@ -98,19 +103,44 @@ class UnionType implements CompoundType, StaticResolvableType
 		return TrinaryLogic::extremeIdentity(...$results);
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
-		$typeNames = [];
-
-		foreach ($this->types as $type) {
-			if ($type instanceof IntersectionType) {
-				$typeNames[] = sprintf('(%s)', $type->describe());
-			} else {
-				$typeNames[] = $type->describe();
+		$joinTypes = function (array $types) use ($level): string {
+			$typeNames = [];
+			foreach ($types as $type) {
+				if ($type instanceof IntersectionType) {
+					$typeNames[] = sprintf('(%s)', $type->describe($level));
+				} else {
+					$typeNames[] = $type->describe($level);
+				}
 			}
-		}
 
-		return implode('|', $typeNames);
+			return implode('|', array_unique($typeNames));
+		};
+
+		return $level->handle(
+			function () use ($joinTypes): string {
+				$types = TypeCombinator::union(...array_map(function (Type $type): Type {
+					if (
+						$type instanceof ConstantType
+						&& !$type instanceof ConstantBooleanType
+					) {
+						return $type->generalize();
+					}
+
+					return $type;
+				}, $this->types));
+
+				if ($types instanceof UnionType) {
+					return $joinTypes($types->getTypes());
+				}
+
+				return $joinTypes([$types]);
+			},
+			function () use ($joinTypes): string {
+				return $joinTypes($this->types);
+			}
+		);
 	}
 
 	public function canAccessProperties(): TrinaryLogic
@@ -250,10 +280,17 @@ class UnionType implements CompoundType, StaticResolvableType
 		});
 	}
 
-	public function getOffsetValueType(): Type
+	public function getOffsetValueType(Type $offsetType): Type
 	{
-		return $this->unionTypes(function (Type $type): Type {
-			return $type->getOffsetValueType();
+		return $this->unionTypes(function (Type $type) use ($offsetType): Type {
+			return $type->getOffsetValueType($offsetType);
+		});
+	}
+
+	public function setOffsetValueType(?Type $offsetType, Type $valueType): Type
+	{
+		return $this->unionTypes(function (Type $type) use ($offsetType, $valueType): Type {
+			return $type->setOffsetValueType($offsetType, $valueType);
 		});
 	}
 
@@ -264,6 +301,15 @@ class UnionType implements CompoundType, StaticResolvableType
 		});
 	}
 
+	public function getCallableParametersAcceptor(Scope $scope): ParametersAcceptor
+	{
+		if ($this->isCallable()->no()) {
+			throw new \PHPStan\ShouldNotHappenException();
+		}
+
+		return new TrivialParametersAcceptor();
+	}
+
 	public function isCloneable(): TrinaryLogic
 	{
 		return $this->unionResults(function (Type $type): TrinaryLogic {
@@ -271,6 +317,65 @@ class UnionType implements CompoundType, StaticResolvableType
 		});
 	}
 
+	public function toBoolean(): BooleanType
+	{
+		/** @var BooleanType $type */
+		$type = $this->unionTypes(function (Type $type): BooleanType {
+			return $type->toBoolean();
+		});
+
+		return $type;
+	}
+
+	public function toNumber(): Type
+	{
+		$type = $this->unionTypes(function (Type $type): Type {
+			return $type->toNumber();
+		});
+
+		return $type;
+	}
+
+	public function toString(): Type
+	{
+		$type = $this->unionTypes(function (Type $type): Type {
+			return $type->toString();
+		});
+
+		return $type;
+	}
+
+	public function toInteger(): Type
+	{
+		$type = $this->unionTypes(function (Type $type): Type {
+			return $type->toInteger();
+		});
+
+		return $type;
+	}
+
+	public function toFloat(): Type
+	{
+		$type = $this->unionTypes(function (Type $type): Type {
+			return $type->toFloat();
+		});
+
+		return $type;
+	}
+
+	public function toArray(): Type
+	{
+		$type = $this->unionTypes(function (Type $type): Type {
+			return $type->toArray();
+		});
+
+		return $type;
+	}
+
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self($properties['types']);

@@ -13,7 +13,7 @@ class TypehintHelper
 			case 'int':
 				return new IntegerType();
 			case 'bool':
-				return new TrueOrFalseBooleanType();
+				return new BooleanType();
 			case 'string':
 				return new StringType();
 			case 'float':
@@ -45,9 +45,9 @@ class TypehintHelper
 	}
 
 	public static function decideTypeFromReflection(
-		\ReflectionType $reflectionType = null,
-		Type $phpDocType = null,
-		string $selfClass = null,
+		?\ReflectionType $reflectionType,
+		?Type $phpDocType = null,
+		?string $selfClass = null,
 		bool $isVariadic = false
 	): Type
 	{
@@ -73,7 +73,7 @@ class TypehintHelper
 
 	public static function decideType(
 		Type $type,
-		Type $phpDocType = null
+		?Type $phpDocType = null
 	): Type
 	{
 		if ($phpDocType !== null && !$phpDocType instanceof ErrorType) {

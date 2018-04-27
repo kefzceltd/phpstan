@@ -13,23 +13,18 @@ use PHPStan\Type\ErrorType;
 use PHPStan\Type\ObjectType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\TypeCombinator;
+use PHPStan\Type\VerbosityLevel;
 
 class AccessStaticPropertiesRule implements \PHPStan\Rules\Rule
 {
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var \PHPStan\Rules\RuleLevelHelper
-	 */
+	/** @var \PHPStan\Rules\RuleLevelHelper */
 	private $ruleLevelHelper;
 
-	/**
-	 * @var \PHPStan\Rules\ClassCaseSensitivityCheck
-	 */
+	/** @var \PHPStan\Rules\ClassCaseSensitivityCheck */
 	private $classCaseSensitivityCheck;
 
 	public function __construct(
@@ -63,7 +58,8 @@ class AccessStaticPropertiesRule implements \PHPStan\Rules\Rule
 		$messages = [];
 		if ($node->class instanceof Name) {
 			$class = (string) $node->class;
-			if ($class === 'self' || $class === 'static') {
+			$lowercasedClass = strtolower($class);
+			if (in_array($lowercasedClass, ['self', 'static'], true)) {
 				if (!$scope->isInClass()) {
 					return [
 						sprintf(
@@ -74,7 +70,7 @@ class AccessStaticPropertiesRule implements \PHPStan\Rules\Rule
 					];
 				}
 				$className = $scope->getClassReflection()->getName();
-			} elseif ($class === 'parent') {
+			} elseif ($lowercasedClass === 'parent') {
 				if (!$scope->isInClass()) {
 					return [
 						sprintf(
@@ -144,7 +140,7 @@ class AccessStaticPropertiesRule implements \PHPStan\Rules\Rule
 
 		if (!$classType->canAccessProperties()->yes()) {
 			return array_merge($messages, [
-				sprintf('Cannot access static property $%s on %s.', $name, $typeForDescribe->describe()),
+				sprintf('Cannot access static property $%s on %s.', $name, $typeForDescribe->describe(VerbosityLevel::typeOnly())),
 			]);
 		}
 
@@ -156,7 +152,7 @@ class AccessStaticPropertiesRule implements \PHPStan\Rules\Rule
 			return array_merge($messages, [
 				sprintf(
 					'Access to an undefined static property %s::$%s.',
-					$typeForDescribe->describe(),
+					$typeForDescribe->describe(VerbosityLevel::typeOnly()),
 					$name
 				),
 			]);

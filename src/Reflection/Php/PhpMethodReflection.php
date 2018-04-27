@@ -7,10 +7,13 @@ use PHPStan\Broker\Broker;
 use PHPStan\Cache\Cache;
 use PHPStan\Parser\FunctionCallStatementFinder;
 use PHPStan\Parser\Parser;
+use PHPStan\Reflection\ClassMemberReflection;
 use PHPStan\Reflection\ClassReflection;
+use PHPStan\Reflection\MethodPrototypeReflection;
 use PHPStan\Reflection\MethodReflection;
 use PHPStan\Reflection\ParametersAcceptor;
 use PHPStan\Reflection\ParametersAcceptorWithPhpDocs;
+use PHPStan\Reflection\PassedByReference;
 use PHPStan\Type\ArrayType;
 use PHPStan\Type\IntegerType;
 use PHPStan\Type\MixedType;
@@ -57,6 +60,16 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 	/** @var \PHPStan\Type\Type */
 	private $nativeReturnType;
 
+	/**
+	 * @param ClassReflection $declaringClass
+	 * @param \ReflectionMethod $reflection
+	 * @param Broker $broker
+	 * @param Parser $parser
+	 * @param FunctionCallStatementFinder $functionCallStatementFinder
+	 * @param Cache $cache
+	 * @param \PHPStan\Type\Type[] $phpDocParameterTypes
+	 * @param null|Type $phpDocReturnType
+	 */
 	public function __construct(
 		ClassReflection $declaringClass,
 		\ReflectionMethod $reflection,
@@ -65,7 +78,7 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 		FunctionCallStatementFinder $functionCallStatementFinder,
 		Cache $cache,
 		array $phpDocParameterTypes,
-		Type $phpDocReturnType = null
+		?Type $phpDocReturnType
 	)
 	{
 		$this->declaringClass = $declaringClass;
@@ -91,25 +104,17 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 		return $this->reflection->getDocComment();
 	}
 
-	public function getPrototype(): MethodReflection
+	public function getPrototype(): ClassMemberReflection
 	{
 		try {
-			$prototypeReflection = $this->reflection->getPrototype();
-			$prototypeDeclaringClass = $this->broker->getClassFromReflection(
-				$prototypeReflection->getDeclaringClass(),
-				$prototypeReflection->getDeclaringClass()->getName(),
-				$prototypeReflection->getDeclaringClass()->isAnonymous()
-			);
+			$prototypeMethod = $this->reflection->getPrototype();
+			$prototypeDeclaringClass = $this->broker->getClass($prototypeMethod->getDeclaringClass()->getName());
 
-			return new self(
+			return new MethodPrototypeReflection(
 				$prototypeDeclaringClass,
-				$prototypeReflection,
-				$this->broker,
-				$this->parser,
-				$this->functionCallStatementFinder,
-				$this->cache,
-				$this->phpDocParameterTypes,
-				$this->phpDocReturnType
+				$prototypeMethod->isStatic(),
+				$prototypeMethod->isPrivate(),
+				$prototypeMethod->isPublic()
 			);
 		} catch (\ReflectionException $e) {
 			return $this;
@@ -141,7 +146,7 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 
 	private function getMethodNameWithCorrectCase(string $lowercaseMethodName, string $traitTarget): ?string
 	{
-		list ($trait, $method) = explode('::', $traitTarget);
+		$trait = explode('::', $traitTarget)[0];
 		$traitReflection = $this->broker->getClass($trait)->getNativeReflection();
 		foreach ($traitReflection->getTraitAliases() as $methodAlias => $traitTarget) {
 			if ($lowercaseMethodName === strtolower($methodAlias)) {
@@ -180,7 +185,7 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 					'parameter',
 					new MixedType(),
 					true,
-					false,
+					PassedByReference::createNo(),
 					true
 				);
 			}
@@ -231,7 +236,7 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 					'args',
 					new MixedType(),
 					true,
-					false,
+					PassedByReference::createNo(),
 					true
 				);
 			}
@@ -244,7 +249,7 @@ class PhpMethodReflection implements MethodReflection, ParametersAcceptorWithPhp
 					'args',
 					new MixedType(),
 					true,
-					false,
+					PassedByReference::createNo(),
 					true
 				);
 			}

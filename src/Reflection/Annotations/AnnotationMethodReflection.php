@@ -2,6 +2,7 @@
 
 namespace PHPStan\Reflection\Annotations;
 
+use PHPStan\Reflection\ClassMemberReflection;
 use PHPStan\Reflection\ClassReflection;
 use PHPStan\Reflection\MethodReflection;
 use PHPStan\Type\Type;
@@ -27,7 +28,22 @@ class AnnotationMethodReflection implements MethodReflection
 	/** @var bool */
 	private $isVariadic;
 
-	public function __construct(string $name, ClassReflection $declaringClass, Type $returnType, array $parameters, bool $isStatic, bool $isVariadic)
+	/**
+	 * @param string $name
+	 * @param ClassReflection $declaringClass
+	 * @param Type $returnType
+	 * @param \PHPStan\Reflection\Annotations\AnnotationsMethodParameterReflection[] $parameters
+	 * @param bool $isStatic
+	 * @param bool $isVariadic
+	 */
+	public function __construct(
+		string $name,
+		ClassReflection $declaringClass,
+		Type $returnType,
+		array $parameters,
+		bool $isStatic,
+		bool $isVariadic
+	)
 	{
 		$this->name = $name;
 		$this->declaringClass = $declaringClass;
@@ -42,7 +58,7 @@ class AnnotationMethodReflection implements MethodReflection
 		return $this->declaringClass;
 	}
 
-	public function getPrototype(): MethodReflection
+	public function getPrototype(): ClassMemberReflection
 	{
 		return $this;
 	}
@@ -52,6 +68,9 @@ class AnnotationMethodReflection implements MethodReflection
 		return $this->isStatic;
 	}
 
+	/**
+	 * @return \PHPStan\Reflection\Annotations\AnnotationsMethodParameterReflection[]
+	 */
 	public function getParameters(): array
 	{
 		return $this->parameters;

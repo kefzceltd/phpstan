@@ -3,6 +3,9 @@
 namespace PHPStan\Type;
 
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Constant\ConstantArrayType;
+use PHPStan\Type\Constant\ConstantIntegerType;
+use PHPStan\Type\Constant\ConstantStringType;
 
 class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 {
@@ -49,7 +52,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult,
 			$actualResult,
-			sprintf('%s -> accepts(%s)', $type->describe(), $otherType->describe())
+			sprintf('%s -> accepts(%s)', $type->describe(VerbosityLevel::value()), $otherType->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -58,10 +61,20 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 		return [
 			[
 				new IntersectionType([
-					new ArrayType(new MixedType(), new MixedType(), false, TrinaryLogic::createNo()),
+					new ConstantArrayType(
+						[new ConstantIntegerType(0), new ConstantIntegerType(1)],
+						[new ConstantStringType('Closure'), new ConstantStringType('bind')]
+					),
 					new IterableType(new MixedType(), new ObjectType('Item')),
 				]),
-				TrinaryLogic::createNo(),
+				TrinaryLogic::createYes(),
+			],
+			[
+				new IntersectionType([
+					new ArrayType(new MixedType(), new MixedType(), false),
+					new IterableType(new MixedType(), new ObjectType('Item')),
+				]),
+				TrinaryLogic::createMaybe(),
 			],
 			[
 				new IntersectionType([
@@ -86,7 +99,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isCallable()', $type->describe())
+			sprintf('%s -> isCallable()', $type->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -148,7 +161,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isSuperTypeOf(%s)', $type->describe(), $otherType->describe())
+			sprintf('%s -> isSuperTypeOf(%s)', $type->describe(VerbosityLevel::value()), $otherType->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -265,7 +278,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isSubTypeOf(%s)', $type->describe(), $otherType->describe())
+			sprintf('%s -> isSubTypeOf(%s)', $type->describe(VerbosityLevel::value()), $otherType->describe(VerbosityLevel::value()))
 		);
 	}
 
@@ -283,7 +296,7 @@ class IntersectionTypeTest extends \PHPStan\Testing\TestCase
 		$this->assertSame(
 			$expectedResult->describe(),
 			$actualResult->describe(),
-			sprintf('%s -> isSuperTypeOf(%s)', $otherType->describe(), $type->describe())
+			sprintf('%s -> isSuperTypeOf(%s)', $otherType->describe(VerbosityLevel::value()), $type->describe(VerbosityLevel::value()))
 		);
 	}
 

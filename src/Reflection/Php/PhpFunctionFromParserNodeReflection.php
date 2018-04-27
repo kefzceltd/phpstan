@@ -4,11 +4,12 @@ namespace PHPStan\Reflection\Php;
 
 use PhpParser\Node\FunctionLike;
 use PhpParser\Node\Stmt\ClassMethod;
+use PHPStan\Reflection\PassedByReference;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
 use PHPStan\Type\TypehintHelper;
 
-class PhpFunctionFromParserNodeReflection implements \PHPStan\Reflection\ParametersAcceptor
+class PhpFunctionFromParserNodeReflection implements \PHPStan\Reflection\FunctionReflection
 {
 
 	/** @var \PhpParser\Node\FunctionLike */
@@ -38,13 +39,21 @@ class PhpFunctionFromParserNodeReflection implements \PHPStan\Reflection\Paramet
 	/** @var \PHPStan\Type\Type */
 	private $returnType;
 
+	/**
+	 * @param FunctionLike $functionLike
+	 * @param \PHPStan\Type\Type[] $realParameterTypes
+	 * @param \PHPStan\Type\Type[] $phpDocParameterTypes
+	 * @param bool $realReturnTypePresent
+	 * @param Type $realReturnType
+	 * @param null|Type $phpDocReturnType
+	 */
 	public function __construct(
 		FunctionLike $functionLike,
 		array $realParameterTypes,
 		array $phpDocParameterTypes,
 		bool $realReturnTypePresent,
 		Type $realReturnType,
-		Type $phpDocReturnType = null
+		?Type $phpDocReturnType = null
 	)
 	{
 		$this->functionLike = $functionLike;
@@ -87,7 +96,9 @@ class PhpFunctionFromParserNodeReflection implements \PHPStan\Reflection\Paramet
 					$isOptional,
 					$this->realParameterTypes[$parameter->name],
 					isset($this->phpDocParameterTypes[$parameter->name]) ? $this->phpDocParameterTypes[$parameter->name] : null,
-					$parameter->byRef,
+					$parameter->byRef
+						? PassedByReference::createCreatesNewVariable()
+						: PassedByReference::createNo(),
 					$parameter->default,
 					$parameter->variadic
 				);

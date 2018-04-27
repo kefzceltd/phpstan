@@ -3,10 +3,13 @@
 namespace PHPStan\Type;
 
 use PHPStan\TrinaryLogic;
+use PHPStan\Type\Constant\ConstantArrayType;
+use PHPStan\Type\Constant\ConstantIntegerType;
 use PHPStan\Type\Traits\NonCallableTypeTrait;
 use PHPStan\Type\Traits\NonIterableTypeTrait;
 use PHPStan\Type\Traits\NonObjectTypeTrait;
 use PHPStan\Type\Traits\NonOffsetAccessibleTypeTrait;
+use PHPStan\Type\Traits\UndecidedBooleanTypeTrait;
 
 class FloatType implements Type
 {
@@ -15,6 +18,7 @@ class FloatType implements Type
 	use NonIterableTypeTrait;
 	use NonObjectTypeTrait;
 	use NonOffsetAccessibleTypeTrait;
+	use UndecidedBooleanTypeTrait;
 
 	/**
 	 * @return string[]
@@ -53,11 +57,44 @@ class FloatType implements Type
 		return TrinaryLogic::createNo();
 	}
 
-	public function describe(): string
+	public function describe(VerbosityLevel $level): string
 	{
 		return 'float';
 	}
 
+	public function toNumber(): Type
+	{
+		return $this;
+	}
+
+	public function toFloat(): Type
+	{
+		return $this;
+	}
+
+	public function toInteger(): Type
+	{
+		return new IntegerType();
+	}
+
+	public function toString(): Type
+	{
+		return new StringType();
+	}
+
+	public function toArray(): Type
+	{
+		return new ConstantArrayType(
+			[new ConstantIntegerType(0)],
+			[$this],
+			1
+		);
+	}
+
+	/**
+	 * @param mixed[] $properties
+	 * @return Type
+	 */
 	public static function __set_state(array $properties): Type
 	{
 		return new self();

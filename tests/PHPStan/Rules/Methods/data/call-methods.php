@@ -98,7 +98,7 @@ class Bar extends Foo
 	 */
 	private function returnsVoid()
 	{
-
+		@$this->returnsVoid();
 	}
 
 }
@@ -613,6 +613,92 @@ class LogicalAndSupport
 	public function findObject()
 	{
 
+	}
+
+}
+
+class LiteralArrayTypeCheck
+{
+
+	public function test(string $str)
+	{
+		$data = [
+			'string' => 'foo',
+			'int' => 12,
+			'bool' => true,
+		];
+
+		$this->test($data['string']);
+		$this->test($data['int']);
+		$this->test($data['bool']);
+	}
+
+}
+
+class CallArrayKeyAfterAssigningToIt
+{
+
+	public function test()
+	{
+		$arr = [null, null];
+		$arr[1] = new \DateTime();
+		$arr[1]->add(new \DateInterval('P1D'));
+
+		$arr[0]->add(new \DateInterval('P1D'));
+	}
+
+}
+
+class CheckIsCallable
+{
+
+	public function test(callable $str)
+	{
+		$this->test('date');
+		$this->test('nonexistentFunction');
+		$this->test('Test\CheckIsCallable::test');
+		$this->test('Test\CheckIsCallable::test2');
+	}
+
+	public function testClosure(\Closure $closure)
+	{
+		$this->testClosure(function () {
+
+		});
+	}
+
+}
+
+class ArrayKeysNull
+{
+
+	public function doFoo()
+	{
+		$array = [];
+
+		/** @var \DateTimeImmutable|null $nullableDateTime */
+		$nullableDateTime = doFoo();
+		$array['key'] = $nullableDateTime;
+		if ($array['key'] === null) {
+			$array['key'] = new \DateTimeImmutable();
+			echo $array['key']->format('j. n. Y');
+		}
+	}
+
+	public function doBar(array $a)
+	{
+		if ($a['key'] === null) {
+			$a['key'] = new \DateTimeImmutable();
+			echo $a['key']->format('j. n. Y');
+		}
+	}
+
+	public function doBaz(array $array)
+	{
+		if ($array['key'] === null) {
+			$array['key'] = new \DateTimeImmutable();
+			echo $array['key']->format('j. n. Y');
+		}
 	}
 
 }

@@ -18,24 +18,16 @@ use PHPStan\Type\UnionType;
 class RuleLevelHelper
 {
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkNullables;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkThisOnly;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkUnionTypes;
 
 	public function __construct(
@@ -53,15 +45,7 @@ class RuleLevelHelper
 
 	public function isThis(Expr $expression): bool
 	{
-		if (!($expression instanceof Expr\Variable)) {
-			return false;
-		}
-
-		if (!is_string($expression->name)) {
-			return false;
-		}
-
-		return $expression->name === 'this';
+		return $expression instanceof Expr\Variable && $expression->name === 'this';
 	}
 
 	public function accepts(Type $acceptingType, Type $acceptedType): bool
@@ -103,9 +87,11 @@ class RuleLevelHelper
 		$errors = [];
 		$referencedClasses = $type->getReferencedClasses();
 		foreach ($referencedClasses as $referencedClass) {
-			if (!$this->broker->hasClass($referencedClass)) {
-				$errors[] = sprintf($unknownClassErrorPattern, $referencedClass);
+			if ($this->broker->hasClass($referencedClass)) {
+				continue;
 			}
+
+			$errors[] = sprintf($unknownClassErrorPattern, $referencedClass);
 		}
 
 		if (count($errors) > 0) {

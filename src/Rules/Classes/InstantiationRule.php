@@ -12,19 +12,13 @@ use PHPStan\Rules\FunctionCallParametersCheck;
 class InstantiationRule implements \PHPStan\Rules\Rule
 {
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var \PHPStan\Rules\FunctionCallParametersCheck
-	 */
+	/** @var \PHPStan\Rules\FunctionCallParametersCheck */
 	private $check;
 
-	/**
-	 * @var \PHPStan\Rules\ClassCaseSensitivityCheck
-	 */
+	/** @var \PHPStan\Rules\ClassCaseSensitivityCheck */
 	private $classCaseSensitivityCheck;
 
 	public function __construct(
@@ -55,22 +49,23 @@ class InstantiationRule implements \PHPStan\Rules\Rule
 		}
 
 		$class = (string) $node->class;
+		$lowercasedClass = strtolower($class);
 		$messages = [];
-		if ($class === 'static') {
+		if ($lowercasedClass === 'static') {
 			if (!$scope->isInClass()) {
 				return [
 					sprintf('Using %s outside of class scope.', $class),
 				];
 			}
 			return [];
-		} elseif ($class === 'self') {
+		} elseif ($lowercasedClass === 'self') {
 			if (!$scope->isInClass()) {
 				return [
 					sprintf('Using %s outside of class scope.', $class),
 				];
 			}
 			$classReflection = $scope->getClassReflection();
-		} elseif ($class === 'parent') {
+		} elseif ($lowercasedClass === 'parent') {
 			if (!$scope->isInClass()) {
 				return [
 					sprintf('Using %s outside of class scope.', $class),
@@ -121,7 +116,7 @@ class InstantiationRule implements \PHPStan\Rules\Rule
 				]);
 			}
 
-			return [];
+			return $messages;
 		}
 
 		$constructorReflection = $classReflection->hasNativeMethod('__construct') ? $classReflection->getNativeMethod('__construct') : $classReflection->getNativeMethod($class);

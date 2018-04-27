@@ -10,7 +10,9 @@ use PhpParser\Node\Stmt\Function_;
 use PHPStan\Analyser\Scope;
 use PHPStan\Broker\Broker;
 use PHPStan\Reflection\ParametersAcceptorWithPhpDocs;
+use PHPStan\Reflection\Php\PhpMethodReflection;
 use PHPStan\Type\NonexistentParentClassType;
+use PHPStan\Type\VerbosityLevel;
 
 class FunctionDefinitionCheck
 {
@@ -29,24 +31,16 @@ class FunctionDefinitionCheck
 		'parent',
 	];
 
-	/**
-	 * @var \PHPStan\Broker\Broker
-	 */
+	/** @var \PHPStan\Broker\Broker */
 	private $broker;
 
-	/**
-	 * @var \PHPStan\Rules\ClassCaseSensitivityCheck
-	 */
+	/** @var \PHPStan\Rules\ClassCaseSensitivityCheck */
 	private $classCaseSensitivityCheck;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkClassCaseSensitivity;
 
-	/**
-	 * @var bool
-	 */
+	/** @var bool */
 	private $checkThisOnly;
 
 	public function __construct(
@@ -77,8 +71,15 @@ class FunctionDefinitionCheck
 	): array
 	{
 		if ($function instanceof ClassMethod) {
+			if (!$scope->isInClass()) {
+				throw new \PHPStan\ShouldNotHappenException();
+			}
+			$nativeMethod = $scope->getClassReflection()->getNativeMethod($function->name);
+			if (!$nativeMethod instanceof PhpMethodReflection) {
+				return [];
+			}
 			return $this->checkParametersAcceptor(
-				$scope->getClassReflection()->getNativeMethod($function->name),
+				$nativeMethod,
 				$parameterMessage,
 				$returnMessage
 			);
@@ -89,15 +90,11 @@ class FunctionDefinitionCheck
 				$functionName = (string) $function->namespacedName;
 			}
 			$functionNameName = new Name($functionName);
-			if (!$this->broker->hasFunction($functionNameName, null)) {
+			if (!$this->broker->hasCustomFunction($functionNameName, null)) {
 				return [];
 			}
 
-			$functionReflection = $this->broker->getFunction($functionNameName, null);
-
-			if (!$functionReflection instanceof ParametersAcceptorWithPhpDocs) {
-				throw new \PHPStan\ShouldNotHappenException();
-			}
+			$functionReflection = $this->broker->getCustomFunction($functionNameName, null);
 
 			return $this->checkParametersAcceptor(
 				$functionReflection,
@@ -111,7 +108,8 @@ class FunctionDefinitionCheck
 			$class = $param->type instanceof NullableType
 				? (string) $param->type->type
 				: (string) $param->type;
-			if ($class === '' || in_array($class, self::VALID_TYPEHINTS, true)) {
+			$lowercasedClass = strtolower($class);
+			if ($lowercasedClass === '' || in_array($lowercasedClass, self::VALID_TYPEHINTS, true)) {
 				continue;
 			}
 
@@ -129,9 +127,11 @@ class FunctionDefinitionCheck
 			? (string) $function->getReturnType()->type
 			: (string) $function->getReturnType();
 
+		$lowercasedReturnType = strtolower($returnType);
+
 		if (
-			$returnType !== ''
-			&& !in_array($returnType, self::VALID_TYPEHINTS, true)
+			$lowercasedReturnType !== ''
+			&& !in_array($lowercasedReturnType, self::VALID_TYPEHINTS, true)
 		) {
 			if (!$this->broker->hasClass($returnType)) {
 				$errors[] = sprintf($returnMessage, $returnType);
@@ -146,6 +146,12 @@ class FunctionDefinitionCheck
 		return $errors;
 	}
 
+	/**
+	 * @param ParametersAcceptorWithPhpDocs $parametersAcceptor
+	 * @param string $parameterMessage
+	 * @param string $returnMessage
+	 * @return string[]
+	 */
 	private function checkParametersAcceptor(
 		ParametersAcceptorWithPhpDocs $parametersAcceptor,
 		string $parameterMessage,
@@ -163,9 +169,11 @@ class FunctionDefinitionCheck
 				);
 			}
 			foreach ($referencedClasses as $class) {
-				if (!$this->broker->hasClass($class) || $this->broker->getClass($class)->isTrait()) {
-					$errors[] = sprintf($parameterMessage, $parameter->getName(), $class);
+				if ($this->broker->hasClass($class) && !$this->broker->getClass($class)->isTrait()) {
+					continue;
 				}
+
+				$errors[] = sprintf($parameterMessage, $parameter->getName(), $class);
 			}
 
 			if ($this->checkClassCaseSensitivity) {
@@ -174,9 +182,11 @@ class FunctionDefinitionCheck
 					$this->classCaseSensitivityCheck->checkClassNames($referencedClasses)
 				);
 			}
-			if ($parameter->getType() instanceof NonexistentParentClassType) {
-				$errors[] = sprintf($parameterMessage, $parameter->getName(), $parameter->getType()->describe());
+			if (!($parameter->getType() instanceof NonexistentParentClassType)) {
+				continue;
 			}
+
+			$errors[] = sprintf($parameterMessage, $parameter->getName(), $parameter->getType()->describe(VerbosityLevel::typeOnly()));
 		}
 
 		if ($this->checkThisOnly) {
@@ -189,9 +199,11 @@ class FunctionDefinitionCheck
 		}
 
 		foreach ($returnTypeReferencedClasses as $class) {
-			if (!$this->broker->hasClass($class) || $this->broker->getClass($class)->isTrait()) {
-				$errors[] = sprintf($returnMessage, $class);
+			if ($this->broker->hasClass($class) && !$this->broker->getClass($class)->isTrait()) {
+				continue;
 			}
+
+			$errors[] = sprintf($returnMessage, $class);
 		}
 
 		if ($this->checkClassCaseSensitivity) {
@@ -201,7 +213,7 @@ class FunctionDefinitionCheck
 			);
 		}
 		if ($parametersAcceptor->getReturnType() instanceof NonexistentParentClassType) {
-			$errors[] = sprintf($returnMessage, $parametersAcceptor->getReturnType()->describe());
+			$errors[] = sprintf($returnMessage, $parametersAcceptor->getReturnType()->describe(VerbosityLevel::typeOnly()));
 		}
 
 		return $errors;

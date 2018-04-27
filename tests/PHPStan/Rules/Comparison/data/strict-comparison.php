@@ -115,7 +115,7 @@ class Foo
 			$a[] = 1;
 		}
 
-		if ($a !== true && count($a) === 1) {
+		if ($a !== true && count($a) > 0) {
 			$a = reset($a);
 		}
 	}
@@ -272,4 +272,159 @@ class Node
 
 		}
 	}
+}
+
+class ConstantValuesComparison
+{
+
+	function testInt()
+	{
+		$a = 1;
+		$b = 2;
+		$a === $b;
+	}
+
+
+	function testArray()
+	{
+		$a = ['X' => 1];
+		$b = ['X' => 2];
+		$a === $b;
+	}
+
+
+	function testArrayTricky()
+	{
+		$a = ['X' => 1, 'Y' => 2];
+		$b = ['X' => 2, 'Y' => 1];
+		$a === $b;
+	}
+
+
+	function testArrayTrickyAlternative()
+	{
+		$a = ['X' => 1, 'Y' => 2];
+		$b = ['Y' => 2, 'X' => 1];
+		$a === $b;
+	}
+
+}
+
+class PredefinedConstants
+{
+
+	public function doFoo()
+	{
+		DIRECTORY_SEPARATOR === '/';
+		DIRECTORY_SEPARATOR === '\\';
+		DIRECTORY_SEPARATOR === '//';
+	}
+
+}
+
+class ConstantTypeInWhile
+{
+
+	public function doFoo()
+	{
+		$i = 0;
+		while ($i++) {
+			if ($i === 1000000) {
+
+			}
+			if ($i === 'string') {
+
+			}
+		}
+
+		if ($i === 1000000) {
+
+		}
+		if ($i === 'string') {
+
+		}
+	}
+
+}
+
+class ConstantTypeInDoWhile
+{
+
+	public function doFoo()
+	{
+		$i = 0;
+		do {
+			if ($i === 1000000) {
+
+			}
+			if ($i === 'string') {
+
+			}
+		} while ($i++);
+
+		if ($i === 1000000) {
+
+		}
+		if ($i === 'string') {
+
+		}
+	}
+
+}
+
+class ConstantAssignOperatorInWhile
+{
+
+	public function doFoo()
+	{
+		$i = 10.0;
+		while (true) {
+			$i /= 5;
+			if ($i === 1000000.0) {
+
+			}
+			if ($i === 'string') {
+
+			}
+		}
+
+		if ($i === 1000000.0) {
+
+		}
+		if ($i === 'string') {
+
+		}
+	}
+
+}
+
+class NullArrayKey
+{
+
+	public function doFoo()
+	{
+		$array = [];
+		$array['key'] = null;
+		if ($array['key'] !== null) {
+
+		}
+	}
+
+}
+
+class OverwriteSpecifiedVariable
+{
+
+	public function doFoo()
+	{
+		/** @var int[] $array */
+		$array = doFoo();
+		if ($array['key'] === 1) {
+			$array = [
+				'key' => 0,
+			];
+			$array['key'] === 0;
+		}
+	}
+
 }

@@ -4,27 +4,18 @@ namespace PHPStan\Rules;
 
 use PhpParser\Node\Expr;
 use PHPStan\Analyser\Scope;
-use PHPStan\Type\MixedType;
-use PHPStan\Type\ThisType;
 use PHPStan\Type\Type;
-use PHPStan\Type\TypeCombinator;
+use PHPStan\Type\VerbosityLevel;
 use PHPStan\Type\VoidType;
 
 class FunctionReturnTypeCheck
 {
 
-	/** @var \PhpParser\PrettyPrinter\Standard */
-	private $printer;
-
 	/** @var \PHPStan\Rules\RuleLevelHelper */
 	private $ruleLevelHelper;
 
-	public function __construct(
-		\PhpParser\PrettyPrinter\Standard $printer,
-		RuleLevelHelper $ruleLevelHelper
-	)
+	public function __construct(RuleLevelHelper $ruleLevelHelper)
 	{
-		$this->printer = $printer;
 		$this->ruleLevelHelper = $ruleLevelHelper;
 	}
 
@@ -51,52 +42,28 @@ class FunctionReturnTypeCheck
 		if ($isGenerator) {
 			return [];
 		}
+
+		$isVoidSuperType = (new VoidType())->isSuperTypeOf($returnType);
 		if ($returnValue === null) {
-			if (
-				$returnType instanceof VoidType
-				|| $returnType instanceof MixedType
-			) {
+			if (!$isVoidSuperType->no()) {
 				return [];
 			}
 
 			return [
 				sprintf(
 					$emptyReturnStatementMessage,
-					$returnType->describe()
+					$returnType->describe(VerbosityLevel::typeOnly())
 				),
 			];
 		}
 
 		$returnValueType = $scope->getType($returnValue);
-		if (
-			TypeCombinator::removeNull($returnType) instanceof ThisType
-			&& !$returnValueType instanceof ThisType
-		) {
-			if (TypeCombinator::containsNull($returnType) && $returnValueType instanceof \PHPStan\Type\NullType) {
-				return [];
-			}
-			if (
-				$returnValue instanceof Expr\Variable
-				&& is_string($returnValue->name)
-				&& $returnValue->name === 'this'
-			) {
-				return [];
-			}
 
-			return [
-				sprintf(
-					$typeMismatchMessage,
-					'$this',
-					$this->printer->prettyPrintExpr($returnValue)
-				),
-			];
-		}
-
-		if ($returnType instanceof VoidType) {
+		if ($isVoidSuperType->yes()) {
 			return [
 				sprintf(
 					$voidMessage,
-					$returnValueType->describe()
+					$returnValueType->describe(VerbosityLevel::typeOnly())
 				),
 			];
 		}
@@ -105,8 +72,8 @@ class FunctionReturnTypeCheck
 			return [
 				sprintf(
 					$typeMismatchMessage,
-					$returnType->describe(),
-					$returnValueType->describe()
+					$returnType->describe(VerbosityLevel::typeOnly()),
+					$returnValueType->describe(VerbosityLevel::typeOnly())
 				),
 			];
 		}

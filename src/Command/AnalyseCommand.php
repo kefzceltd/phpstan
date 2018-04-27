@@ -39,7 +39,9 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 			]);
 	}
 
-
+	/**
+	 * @return string[]
+	 */
 	public function getAliases(): array
 	{
 		return ['analyze'];
@@ -70,7 +72,7 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 
 		$autoloadFile = $input->getOption('autoload-file');
 		if ($autoloadFile !== null && is_file($autoloadFile)) {
-			$autoloadFile = $fileHelper->normalizePath($autoloadFile);
+			$autoloadFile = $fileHelper->absolutizePath($autoloadFile);
 			if (is_file($autoloadFile)) {
 				require_once $autoloadFile;
 			}
@@ -156,7 +158,7 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 				"PHPStan crashed in the previous run probably because of excessive memory consumption.\nIt consumed around %s of memory.\n\nTo avoid this issue, allow to use more memory with the --memory-limit option.",
 				$memoryLimitFileContents
 			));
-			unlink($memoryLimitFile);
+			@unlink($memoryLimitFile);
 		}
 		$errorFormat = $input->getOption('errorFormat');
 		$errorFormatterServiceName = sprintf('errorFormatter.%s', $errorFormat);
@@ -185,7 +187,7 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 			$output->writeln('  * in this case, don\'t forget to define parameter <options=bold>customRulesetUsed</> in your config file.');
 			$output->writeln('');
 			return 1;
-		} elseif ($container->parameters['customRulesetUsed']) {
+		} elseif ((bool) $container->parameters['customRulesetUsed']) {
 			$defaultLevelUsed = false;
 		}
 
@@ -225,21 +227,23 @@ class AnalyseCommand extends \Symfony\Component\Console\Command\Command
 
 	private function handleReturn(int $code, string $memoryLimitFile): int
 	{
-		unlink($memoryLimitFile);
+		@unlink($memoryLimitFile);
 		return $code;
 	}
 
 	private function setUpSignalHandler(StyleInterface $consoleStyle, string $memoryLimitFile): void
 	{
-		if (function_exists('pcntl_signal')) {
-			pcntl_signal(SIGINT, function () use ($consoleStyle, $memoryLimitFile): void {
-				if (file_exists($memoryLimitFile)) {
-					unlink($memoryLimitFile);
-				}
-				$consoleStyle->newLine();
-				exit(1);
-			});
+		if (!function_exists('pcntl_signal')) {
+			return;
 		}
+
+		pcntl_signal(SIGINT, function () use ($consoleStyle, $memoryLimitFile): void {
+			if (file_exists($memoryLimitFile)) {
+				@unlink($memoryLimitFile);
+			}
+			$consoleStyle->newLine();
+			exit(1);
+		});
 	}
 
 }
